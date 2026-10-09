@@ -1,14 +1,13 @@
 """Modelos de tabla del módulo libros: Libro y LibroAutor (asociación)."""
 
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import CheckConstraint, Numeric
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.modules.autores.models import Autor
-    from app.modules.clientes.models import Cliente  # noqa: F401 (referencia cruzada)
     from app.modules.editoriales.models import Editorial
     from app.modules.generos.models import Genero
     from app.modules.ventas.models import RenglonVenta
@@ -29,8 +28,8 @@ class Libro(SQLModel, table=True):
     editorial_id: int = Field(foreign_key="editorial.id", index=True)
     genero_id: int | None = Field(default=None, foreign_key="genero.id", index=True)
 
-    editorial: "Editorial | None" = Relationship(back_populates="libros")  # type: ignore[valid-type]
-    genero: "Genero | None" = Relationship(back_populates="libros")  # type: ignore[valid-type]
+    editorial: Optional["Editorial"] = Relationship(back_populates="libros")
+    genero: Optional["Genero"] = Relationship(back_populates="libros")
     autorias: list["LibroAutor"] = Relationship(back_populates="libro")
     renglones: list["RenglonVenta"] = Relationship(back_populates="libro")
 
@@ -52,5 +51,5 @@ class LibroAutor(SQLModel, table=True):
     rol: str
     orden: int = Field(default=1)
 
-    libro: "Libro | None" = Relationship(back_populates="autorias")  # type: ignore[valid-type]
-    autor: "Autor | None" = Relationship(back_populates="autorias")  # type: ignore[valid-type]
+    libro: Optional["Libro"] = Relationship(back_populates="autorias")
+    autor: Optional["Autor"] = Relationship(back_populates="autorias")

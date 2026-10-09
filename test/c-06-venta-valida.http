@@ -1,0 +1,50 @@
+# C-06: venta válida con dos renglones.
+# Esperado: 201, con los renglones creados, los precios copiados desde el
+# libro y el total calculado por el servidor (no viajan en el DTO).
+
+### Venta válida -> 201
+POST http://localhost:8000/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 2 },
+    { "libro_id": 2, "cantidad": 1 }
+  ]
+}
+
+# Respuesta esperada (ejemplo):
+# {
+#   "id": 2,
+#   "fecha": "2026-10-08T21:14:11.751581Z",
+#   "total": "77000.00",
+#   "cliente": { "id": 2, "nombre": "Tomás Ríos", "email": "tomas@example.com" },
+#   "renglones": [
+#     { "libro_id": 1, "titulo": "Rayuela", "cantidad": 2,
+#       "precio_unitario": "25000.00", "subtotal": "50000.00" },
+#     { "libro_id": 4, "titulo": "Respiración artificial", "cantidad": 1,
+#       "precio_unitario": "27000.00", "subtotal": "27000.00" }
+#   ]
+# }
+
+### Venta sin renglones -> 422 (RN-05)
+POST http://localhost:8000/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": []
+}
+
+### Venta con libro repetido en dos renglones -> 422 (RN-05)
+POST http://localhost:8000/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 },
+    { "libro_id": 1, "cantidad": 2 }
+  ]
+}

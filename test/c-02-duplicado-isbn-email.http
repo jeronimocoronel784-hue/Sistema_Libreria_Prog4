@@ -1,0 +1,39 @@
+# C-02: ISBN o email repetido.
+# Esperado: 409 con mensaje propio (sin texto interno de la base).
+
+### Crear libro (primera vez -> 201)
+POST http://localhost:8000/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0099-8",
+  "titulo": "Libro duplicado",
+  "precio": "10000.00",
+  "stock": 3,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [{ "autor_id": 1, "rol": "autor", "orden": 1 }]
+}
+
+### Crear libro con el mismo ISBN -> 409
+POST http://localhost:8000/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0099-8",
+  "titulo": "Libro duplicado otra vez",
+  "precio": "10000.00",
+  "stock": 3,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [{ "autor_id": 1, "rol": "autor", "orden": 1 }]
+}
+
+### Crear cliente con email repetido -> 409
+POST http://localhost:8000/clientes/
+Content-Type: application/json
+
+{
+  "nombre": "Otro Nombre",
+  "email": "tomas@example.com"
+}

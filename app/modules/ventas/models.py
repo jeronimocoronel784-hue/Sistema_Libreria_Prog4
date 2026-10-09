@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import CheckConstraint, DateTime, Numeric
 from sqlmodel import Field, Relationship, SQLModel
@@ -26,7 +26,7 @@ class Venta(SQLModel, table=True):
     )
     total: Decimal = Field(default=Decimal("0"), sa_type=Numeric(12, 2))
 
-    cliente: "Cliente | None" = Relationship(back_populates="ventas")  # type: ignore[valid-type]
+    cliente: Optional["Cliente"] = Relationship(back_populates="ventas")
     renglones: list["RenglonVenta"] = Relationship(back_populates="venta")
 
 
@@ -45,5 +45,5 @@ class RenglonVenta(SQLModel, table=True):
     cantidad: int
     precio_unitario: Decimal = Field(sa_type=Numeric(10, 2))
 
-    venta: "Venta | None" = Relationship(back_populates="renglones")  # type: ignore[valid-type]
-    libro: "Libro | None" = Relationship(back_populates="renglones")  # type: ignore[valid-type]
+    venta: Optional["Venta"] = Relationship(back_populates="renglones")
+    libro: Optional["Libro"] = Relationship(back_populates="renglones")

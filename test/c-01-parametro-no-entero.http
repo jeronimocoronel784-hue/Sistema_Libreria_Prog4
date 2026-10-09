@@ -1,0 +1,12 @@
+# C-01: parámetro de ruta que no es entero.
+# Esperado: 422, sin ejecutar el handler.
+# Cada caso indica la respuesta esperada en un comentario.
+
+### Editorial con id no entero -> 422
+GET http://localhost:8000/editoriales/abc
+
+### Libro con id no entero -> 422
+GET http://localhost:8000/libros/xyz
+
+### Venta con id no entero -> 422
+GET http://localhost:8000/ventas/no-numero

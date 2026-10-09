@@ -1,6 +1,6 @@
 """Modelos de tabla del módulo clientes: Cliente y PerfilCliente (uno a uno)."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -15,7 +15,7 @@ class Cliente(SQLModel, table=True):
     nombre: str
     email: str = Field(unique=True)
 
-    perfil: "PerfilCliente | None" = Relationship(
+    perfil: Optional["PerfilCliente"] = Relationship(
         back_populates="cliente",
         sa_relationship_kwargs={"uselist": False},
     )
@@ -30,4 +30,4 @@ class PerfilCliente(SQLModel, table=True):
     telefono: str | None = Field(default=None)
     direccion: str | None = Field(default=None)
 
-    cliente: "Cliente | None" = Relationship(back_populates="perfil")  # type: ignore[valid-type]
+    cliente: Optional["Cliente"] = Relationship(back_populates="perfil")

@@ -1,0 +1,29 @@
+# C-03: segundo perfil para el mismo cliente.
+# Esperado: 409 (UNIQUE en perfil_cliente.cliente_id).
+
+### Crear cliente -> 201
+POST http://localhost:8000/clientes/
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Perfil",
+  "email": "perfil@example.com"
+}
+
+### Primer perfil del cliente 3 -> 201
+POST http://localhost:8000/clientes/3/perfil
+Content-Type: application/json
+
+{
+  "telefono": "11-5555-0001",
+  "direccion": "Calle Falsa 123"
+}
+
+### Segundo perfil del mismo cliente -> 409
+POST http://localhost:8000/clientes/3/perfil
+Content-Type: application/json
+
+{
+  "telefono": "11-5555-0002",
+  "direccion": "Otra Dirección 456"
+}
