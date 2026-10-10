@@ -49,9 +49,12 @@ async def actualizar_autor(
 
 @router.get("/{autor_id}/libros", response_model=list[LibroConRol])
 async def libros_del_autor(
-    autor_id: int, session: AsyncSession = Depends(get_session)
+    autor_id: int,
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict]:
-    autorias = await service.libros_del_autor(session, autor_id)
+    autorias = await service.libros_del_autor(session, autor_id, limit, offset)
     return [
         {
             "libro_id": a.libro_id,

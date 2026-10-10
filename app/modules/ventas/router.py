@@ -45,12 +45,7 @@ async def listar_ventas(
 ) -> list:
     ventas = await service.listar(session, limit, offset)
     return [
-        {
-            "id": v.id,
-            "cliente_id": v.cliente_id,
-            "fecha": v.fecha.isoformat() if v.fecha is not None else None,
-            "total": v.total,
-        }
+        {"id": v.id, "cliente_id": v.cliente_id, "fecha": v.fecha, "total": v.total}
         for v in ventas
     ]
 

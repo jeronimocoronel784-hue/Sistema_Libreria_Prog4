@@ -1,7 +1,21 @@
 # C-03: segundo perfil para el mismo cliente.
 # Esperado: 409 (UNIQUE en perfil_cliente.cliente_id).
+#
+# El seed (scripts/seed.py) crea 2 clientes: id 1 CON perfil, id 2 SIN perfil.
+# El caso determinista usa el cliente 1: ya tiene perfil -> 409 directo.
+# Para el flujo completo (crear -> perfil 201 -> perfil 409), reemplazá {ID}
+# por el id devuelto en el 201 previo (tras un seed limpio es 3).
 
-### Crear cliente -> 201
+### Segundo perfil del cliente 1 (ya tiene perfil en el seed) -> 409
+POST http://localhost:8000/clientes/1/perfil
+Content-Type: application/json
+
+{
+  "telefono": "11-5555-0002",
+  "direccion": "Otra Dirección 456"
+}
+
+### [Flujo completo] Crear cliente -> 201 (anotar el id devuelto como {ID})
 POST http://localhost:8000/clientes/
 Content-Type: application/json
 
@@ -10,7 +24,7 @@ Content-Type: application/json
   "email": "perfil@example.com"
 }
 
-### Primer perfil del cliente 3 -> 201
+### [Flujo completo] Primer perfil del cliente {ID} -> 201
 POST http://localhost:8000/clientes/3/perfil
 Content-Type: application/json
 
@@ -19,7 +33,7 @@ Content-Type: application/json
   "direccion": "Calle Falsa 123"
 }
 
-### Segundo perfil del mismo cliente -> 409
+### [Flujo completo] Segundo perfil del mismo cliente {ID} -> 409
 POST http://localhost:8000/clientes/3/perfil
 Content-Type: application/json
 

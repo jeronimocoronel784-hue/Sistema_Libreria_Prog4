@@ -58,6 +58,7 @@ async def crear(session: AsyncSession, data: VentaCreate) -> dict:
 async def listar(
     session: AsyncSession, limit: int = 20, offset: int = 0
 ) -> list[Venta]:
+    # sin relaciones en respuesta: el listado no precarga a propósito.
     res = await session.execute(
         select(Venta).order_by(Venta.id).offset(offset).limit(limit)
     )
@@ -91,7 +92,7 @@ async def obtener_detalle(session: AsyncSession, venta_id: int) -> dict:
         )
     return {
         "id": venta.id,
-        "fecha": venta.fecha.isoformat() if venta.fecha is not None else None,
+        "fecha": venta.fecha,
         "total": venta.total,
         "cliente": (
             {

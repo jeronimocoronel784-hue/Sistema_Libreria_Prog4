@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 from sqlmodel import select
 
 from app.modules.generos.models import Genero
-from app.modules.generos.schemas import GeneroCreate
+from app.modules.generos.schemas import GeneroCreate, GeneroUpdate
 from app.modules.libros.models import Libro
 
 _MSJ_CONFLICTO = "No se pudo guardar el género: el nombre ya existe."
@@ -28,6 +28,7 @@ async def crear(session: AsyncSession, data: GeneroCreate) -> Genero:
 async def listar(
     session: AsyncSession, limit: int = 20, offset: int = 0
 ) -> list[Genero]:
+    # sin relaciones en respuesta: el listado no precarga a propósito.
     res = await session.execute(select(Genero).offset(offset).limit(limit))
     return list(res.scalars().all())
 
@@ -39,11 +40,30 @@ async def obtener(session: AsyncSession, genero_id: int) -> Genero:
     return genero
 
 
-async def libros_del_genero(session: AsyncSession, genero_id: int) -> list[Libro]:
+async def actualizar(
+    session: AsyncSession, genero_id: int, data: GeneroUpdate
+) -> Genero:
+    genero = await obtener(session, genero_id)
+    for campo, valor in data.model_dump(exclude_unset=True).items():
+        setattr(genero, campo, valor)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=_MSJ_CONFLICTO)
+    await session.refresh(genero)
+    return genero
+
+
+async def libros_del_genero(
+    session: AsyncSession, genero_id: int, limit: int = 20, offset: int = 0
+) -> list[Libro]:
     await obtener(session, genero_id)
     res = await session.execute(
         select(Libro)
         .where(Libro.genero_id == genero_id)
         .options(joinedload(Libro.editorial), joinedload(Libro.genero))
+        .offset(offset)
+        .limit(limit)
     )
     return list(res.scalars().all())

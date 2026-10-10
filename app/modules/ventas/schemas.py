@@ -1,5 +1,6 @@
 """Contratos del módulo ventas."""
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Self
 
@@ -40,7 +41,7 @@ class RenglonRead(SQLModel):
 
 class VentaRead(SQLModel):
     id: int
-    fecha: str | None = None
+    fecha: datetime | None = None
     total: Decimal
     cliente: ClienteResumido | None = None
     renglones: list[RenglonRead] = Field(default_factory=list)
@@ -49,5 +50,5 @@ class VentaRead(SQLModel):
 class VentaEnLista(SQLModel):
     id: int
     cliente_id: int
-    fecha: str | None = None
+    fecha: datetime | None = None
     total: Decimal

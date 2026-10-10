@@ -49,6 +49,9 @@ async def actualizar_editorial(
 
 @router.get("/{editorial_id}/libros", response_model=list[LibroResumen])
 async def libros_de_editorial(
-    editorial_id: int, session: AsyncSession = Depends(get_session)
+    editorial_id: int,
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> list:
-    return await service.libros_de_editorial(session, editorial_id)
+    return await service.libros_de_editorial(session, editorial_id, limit, offset)

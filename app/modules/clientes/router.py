@@ -61,14 +61,10 @@ async def crear_perfil(
 
 @router.get("/{cliente_id}/ventas", response_model=list[VentaResumen])
 async def ventas_del_cliente(
-    cliente_id: int, session: AsyncSession = Depends(get_session)
+    cliente_id: int,
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> list:
-    ventas = await service.ventas_del_cliente(session, cliente_id)
-    return [
-        {
-            "id": v.id,
-            "fecha": v.fecha.isoformat() if v.fecha is not None else None,
-            "total": v.total,
-        }
-        for v in ventas
-    ]
+    ventas = await service.ventas_del_cliente(session, cliente_id, limit, offset)
+    return [{"id": v.id, "fecha": v.fecha, "total": v.total} for v in ventas]

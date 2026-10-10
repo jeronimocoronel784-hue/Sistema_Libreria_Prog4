@@ -1,8 +1,15 @@
 """Contratos del módulo editoriales."""
 
-from decimal import Decimal
-
 from sqlmodel import Field, SQLModel
+
+from app.modules.common.schemas import LibroResumen
+
+__all__ = [
+    "EditorialCreate",
+    "EditorialUpdate",
+    "EditorialRead",
+    "LibroResumen",  # re-exportado desde common (compatibilidad)
+]
 
 
 class EditorialCreate(SQLModel):
@@ -19,11 +26,3 @@ class EditorialRead(SQLModel):
     id: int
     nombre: str
     pais: str | None = None
-
-
-class LibroResumen(SQLModel):
-    id: int
-    isbn: str
-    titulo: str
-    precio: Decimal
-    stock: int

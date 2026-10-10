@@ -28,6 +28,7 @@ psql -U postgres -h localhost -c "CREATE DATABASE libreria"
 copy env.example .env         # Windows
 # cp env.example .env         # Linux/macOS
 # Editar .env -> DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/libreria
+# (omitir :postgres si tu Postgres local no usa contraseña; ver env.example)
 
 # 4. Migraciones (crea todo el esquema sobre la base vacía)
 alembic upgrade head
@@ -72,6 +73,7 @@ app/main.py                  app, lifespan (motor+sessions en app.state) y route
 app/core/config.py           DATABASE_URL desde .env
 app/core/database.py         motor async, fábrica (expire_on_commit=False), get_session
 app/modules/<mod>/models.py  tablas, UNIQUE/CHECK/FK+índice, back_populates
+app/modules/common/schemas.py DTO compartidos (LibroResumen, VentaResumen)
 app/modules/<mod>/schemas.py DTO Create/Update/Read (los Create no llevan id)
 app/modules/<mod>/service.py lógica + traducción de IntegrityError + precarga
 app/modules/<mod>/router.py  handlers async def con Depends(get_session)

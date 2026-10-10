@@ -28,6 +28,7 @@ async def crear(session: AsyncSession, data: EditorialCreate) -> Editorial:
 async def listar(
     session: AsyncSession, limit: int = 20, offset: int = 0
 ) -> list[Editorial]:
+    # sin relaciones en respuesta: el listado no precarga a propósito.
     res = await session.execute(select(Editorial).offset(offset).limit(limit))
     return list(res.scalars().all())
 
@@ -55,12 +56,14 @@ async def actualizar(
 
 
 async def libros_de_editorial(
-    session: AsyncSession, editorial_id: int
+    session: AsyncSession, editorial_id: int, limit: int = 20, offset: int = 0
 ) -> list[Libro]:
     await obtener(session, editorial_id)
     res = await session.execute(
         select(Libro)
         .where(Libro.editorial_id == editorial_id)
         .options(joinedload(Libro.editorial), joinedload(Libro.genero))
+        .offset(offset)
+        .limit(limit)
     )
     return list(res.scalars().all())

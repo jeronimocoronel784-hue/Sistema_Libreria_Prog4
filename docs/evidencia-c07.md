@@ -48,3 +48,16 @@ WHERE renglon_venta.venta_id IN (1);
 
 Ninguna lectura depende de carga perezosa: toda relación se declara con
 `joinedload` (a uno) o `selectinload` (colecciones) en la consulta original.
+
+## Subrutas relacionadas — 2 SELECT fijos cada una
+
+Cada subruta emite un número **fijo** de consultas, independiente de la
+cantidad de filas devueltas (el `limit`/`offset` de RN-10 no agrega
+consultas, solo acota la segunda):
+
+| Subruta | Consulta 1 | Consulta 2 |
+|---------|-----------|-----------|
+| `GET /editoriales/{id}/libros` | `SELECT` editorial por PK (404 si no existe) | `SELECT` libros + editorial + género (`joinedload`) con `OFFSET`/`LIMIT` |
+| `GET /generos/{id}/libros` | `SELECT` género por PK (404 si no existe) | `SELECT` libros + editorial + género (`joinedload`) con `OFFSET`/`LIMIT` |
+| `GET /autores/{id}/libros` | `SELECT` autor por PK (404 si no existe) | `SELECT` autorías + libro (`joinedload`) con `OFFSET`/`LIMIT` |
+| `GET /clientes/{id}/ventas` | `SELECT` cliente por PK (404 si no existe) | `SELECT` ventas con `ORDER BY id` + `OFFSET`/`LIMIT` |

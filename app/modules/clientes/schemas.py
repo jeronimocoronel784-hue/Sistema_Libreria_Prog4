@@ -1,18 +1,29 @@
 """Contratos del módulo clientes."""
 
-from decimal import Decimal
-
+from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
+
+from app.modules.common.schemas import VentaResumen
+
+__all__ = [
+    "ClienteCreate",
+    "ClienteUpdate",
+    "ClienteRead",
+    "PerfilCreate",
+    "PerfilRead",
+    "ClienteConPerfil",
+    "VentaResumen",  # re-exportado desde common (compatibilidad)
+]
 
 
 class ClienteCreate(SQLModel):
     nombre: str = Field(min_length=1)
-    email: str = Field(min_length=3)
+    email: EmailStr = Field(min_length=3)
 
 
 class ClienteUpdate(SQLModel):
     nombre: str | None = Field(default=None, min_length=1)
-    email: str | None = Field(default=None, min_length=3)
+    email: EmailStr | None = Field(default=None, min_length=3)
 
 
 class ClienteRead(SQLModel):
@@ -38,9 +49,3 @@ class ClienteConPerfil(SQLModel):
     nombre: str
     email: str
     perfil: PerfilRead | None = None
-
-
-class VentaResumen(SQLModel):
-    id: int
-    fecha: str | None = None
-    total: Decimal

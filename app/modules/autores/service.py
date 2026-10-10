@@ -10,7 +10,7 @@ from app.modules.autores.models import Autor
 from app.modules.autores.schemas import AutorCreate, AutorUpdate
 from app.modules.libros.models import LibroAutor
 
-_MSJ_CONFLICTO = "No se pudo guardar el autor: datos inválidos."
+_MSJ_CONFLICTO = "No se pudo guardar el autor: el id ya existe o los datos son inválidos."
 
 
 async def crear(session: AsyncSession, data: AutorCreate) -> Autor:
@@ -28,6 +28,7 @@ async def crear(session: AsyncSession, data: AutorCreate) -> Autor:
 async def listar(
     session: AsyncSession, limit: int = 20, offset: int = 0
 ) -> list[Autor]:
+    # sin relaciones en respuesta: el listado no precarga a propósito.
     res = await session.execute(select(Autor).offset(offset).limit(limit))
     return list(res.scalars().all())
 
@@ -54,12 +55,16 @@ async def actualizar(
     return autor
 
 
-async def libros_del_autor(session: AsyncSession, autor_id: int) -> list[LibroAutor]:
+async def libros_del_autor(
+    session: AsyncSession, autor_id: int, limit: int = 20, offset: int = 0
+) -> list[LibroAutor]:
     """Autorías del autor con su libro precargado (número fijo de consultas)."""
     await obtener(session, autor_id)
     res = await session.execute(
         select(LibroAutor)
         .where(LibroAutor.autor_id == autor_id)
         .options(joinedload(LibroAutor.libro))
+        .offset(offset)
+        .limit(limit)
     )
     return list(res.scalars().all())

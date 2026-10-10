@@ -35,6 +35,7 @@ async def crear(session: AsyncSession, data: ClienteCreate) -> Cliente:
 async def listar(
     session: AsyncSession, limit: int = 20, offset: int = 0
 ) -> list[Cliente]:
+    # sin relaciones en respuesta: el listado no precarga a propósito.
     res = await session.execute(select(Cliente).offset(offset).limit(limit))
     return list(res.scalars().all())
 
@@ -84,11 +85,17 @@ async def crear_perfil(
     return perfil
 
 
-async def ventas_del_cliente(session: AsyncSession, cliente_id: int) -> list[Venta]:
+async def ventas_del_cliente(
+    session: AsyncSession, cliente_id: int, limit: int = 20, offset: int = 0
+) -> list[Venta]:
     res = await session.execute(select(Cliente).where(Cliente.id == cliente_id))
     if res.scalars().first() is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado.")
     res = await session.execute(
-        select(Venta).where(Venta.cliente_id == cliente_id).order_by(Venta.id)
+        select(Venta)
+        .where(Venta.cliente_id == cliente_id)
+        .order_by(Venta.id)
+        .offset(offset)
+        .limit(limit)
     )
     return list(res.scalars().all())
