@@ -59,6 +59,9 @@ def _excluir(nombre: str) -> bool:
         return True
     if nombre in EXCLUIDOS_ARCHIVOS:
         return True
+    # Cualquier archivo de variables: `.env`, `libreria.env`, `algo.env`.
+    if nombre.endswith(".env"):
+        return True
     if nombre.endswith(".pyc"):
         return True
     return False
@@ -117,7 +120,7 @@ def main() -> None:
         for n in nombres
         if "__pycache__" in n
         or "/.venv/" in n
-        or n.endswith("/.env")
+        or n.endswith(".env")
         or n.endswith(".pyc")
     ]
     if prohibido:

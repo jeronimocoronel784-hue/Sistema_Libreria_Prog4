@@ -7,7 +7,7 @@ Fuente: `Parcial_2_Consignas.docx` (Materia: Programación III).
 | Bloque | Estado |
 |--------|--------|
 | B0 · Congelar `despliegue/` | **Hecho** (copia del TP + Dockerfile + .dockerignore + env.example + DEPLOY.md + evidencia/) |
-| B1 · Contenedor y VPS | **A medias**: el Dockerfile está escrito pero **Docker no está instalado** en la máquina y falta el acceso al VPS |
+| B1 · Contenedor y VPS | **A medias**: la imagen se construye, el contenedor queda `healthy` y los casos D-01 a D-08 están verificados con evidencia. **Falta el VPS**: la URL pública y re-correr la evidencia desde el servidor |
 | B2 · Configuración y ciclo de vida | **Hecho** (`Settings` con pydantic-settings, secretos sin default, pool y bcrypt en config) |
 | B3 · Modelos y migraciones | **Hecho** (0003 autogenerada y leída, 0004 a mano con el trigger; `downgrade base` → `upgrade head` verificado) |
 | B4 · Contratos y CRUD | **Hecho** (`extra="forbid"`, envoltorio de paginación, `DELETE /libros/{id}` → 204) |
@@ -19,16 +19,13 @@ Fuente: `Parcial_2_Consignas.docx` (Materia: Programación III).
 | B10 · Datos, pruebas y entrega | **Hecho** (seed nuevo, casos C-01..C-16 en `.http` + `solo_agregado.sql`, evidencia de C-14 y C-15, README, script del zip) |
 
 **Verificación**: `python scripts/e2e_check.py` → **TODO OK** (los casos C-01 a C-16).
+`python scripts/capturar_d.py` → evidencia de D-01 a D-08 en `despliegue/evidencia/`.
 
 **Pendiente de vos**:
-1. **Reiniciar la máquina**: Docker Desktop 4.98 y el CLI 29.9.2 ya están
-   instalados y WSL2 quedó habilitado, pero el motor Linux no levanta hasta
-   que el `VirtualMachinePlatform` está activo: eso exige un reinicio. Después
-   de reiniciar, `docker version` tiene que mostrar la sección *Server*.
-2. Los datos del VPS: host, puerto de SSH, usuario de SSH, **puerto asignado
+1. Los datos del VPS: host, puerto de SSH, usuario de SSH, **puerto asignado
    por la cátedra para publicar la app**, y los datos de la base (host, puerto,
    usuario, contraseña y nombre de la base).
-3. La base ya está: `libreria` (la del parcial) y `libreria_tp` (la del
+2. La base ya está: `libreria` (la del parcial) y `libreria_tp` (la del
    despliegue), con el superusuario `postgres` y la contraseña `134679`.
 
 ## Punto de partida
