@@ -2,6 +2,29 @@
 
 Fuente: `Parcial_2_Consignas.docx` (Materia: Programación III).
 
+## Estado (2026-11-05)
+
+| Bloque | Estado |
+|--------|--------|
+| B0 · Congelar `despliegue/` | **Hecho** (copia del TP + Dockerfile + .dockerignore + env.example + DEPLOY.md + evidencia/) |
+| B1 · Contenedor y VPS | **A medias**: el Dockerfile está escrito pero **Docker no está instalado** en la máquina y falta el acceso al VPS |
+| B2 · Configuración y ciclo de vida | **Hecho** (`Settings` con pydantic-settings, secretos sin default, pool y bcrypt en config) |
+| B3 · Modelos y migraciones | **Hecho** (0003 autogenerada y leída, 0004 a mano con el trigger; `downgrade base` → `upgrade head` verificado) |
+| B4 · Contratos y CRUD | **Hecho** (`extra="forbid"`, envoltorio de paginación, `DELETE /libros/{id}` → 204) |
+| B5 · Autenticación | **Hecho** (bcrypt con semáforo, orden del login, hash ficticio, cookie HttpOnly) |
+| B6 · Autorización | **Hecho** (roles vigentes en la base, autoprotección, dos grupos de rutas, `/mis-ventas`) |
+| B7 · Repositorios y UoW | **Hecho** (dos jerarquías, precarga en el repositorio, un solo punto de escritura del stock) |
+| B8 · Integridad | **Hecho** (disparador + `intento_acceso` en su propia transacción con su comentario) |
+| B9 · Lecturas sin N+1 | **Hecho** (4 consultas fijas en el detalle de una venta, con 2 y con 4 renglones) |
+| B10 · Datos, pruebas y entrega | **Hecho** (seed nuevo, casos C-01..C-16 en `.http` + `solo_agregado.sql`, evidencia de C-14 y C-15, README, script del zip) |
+
+**Verificación**: `python scripts/e2e_check.py` → **TODO OK** (los casos C-01 a C-16).
+
+**Pendiente de vos**:
+1. La contraseña del superusuario `postgres` (para crear la base `libreria` y dejar de usar el esquema de desarrollo aislado).
+2. Instalar Docker (no está en la máquina).
+3. Los datos del VPS: host, puerto asignado, usuario, contraseña y nombre de la base que provee la cátedra.
+
 ## Punto de partida
 
 El repositorio actual **es el TP de los capítulos 1 a 4**, y está completo
