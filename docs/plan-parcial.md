@@ -21,9 +21,15 @@ Fuente: `Parcial_2_Consignas.docx` (Materia: Programación III).
 **Verificación**: `python scripts/e2e_check.py` → **TODO OK** (los casos C-01 a C-16).
 
 **Pendiente de vos**:
-1. La contraseña del superusuario `postgres` (para crear la base `libreria` y dejar de usar el esquema de desarrollo aislado).
-2. Instalar Docker (no está en la máquina).
-3. Los datos del VPS: host, puerto asignado, usuario, contraseña y nombre de la base que provee la cátedra.
+1. **Reiniciar la máquina**: Docker Desktop 4.98 y el CLI 29.9.2 ya están
+   instalados y WSL2 quedó habilitado, pero el motor Linux no levanta hasta
+   que el `VirtualMachinePlatform` está activo: eso exige un reinicio. Después
+   de reiniciar, `docker version` tiene que mostrar la sección *Server*.
+2. Los datos del VPS: host, puerto de SSH, usuario de SSH, **puerto asignado
+   por la cátedra para publicar la app**, y los datos de la base (host, puerto,
+   usuario, contraseña y nombre de la base).
+3. La base ya está: `libreria` (la del parcial) y `libreria_tp` (la del
+   despliegue), con el superusuario `postgres` y la contraseña `134679`.
 
 ## Punto de partida
 
