@@ -12,8 +12,8 @@ y roles, repositorios y Unit of Work, y la capa de despliegue en contenedor.
 
 ## Integrantes
 
-- Corone Jeronimo
-- Godoy Joaqui
+- Coronel Jeronimo
+- Godoy Joaquin
 - Gimenez Sabrina
 - Saleme Ismael
 
