@@ -6,3 +6,7 @@ venv/
 
 # Zip de entrega (se genera con scripts/armar_zip.py)
 Parcial_Cap1a6_*.zip
+
+# Archivo de variables del despliegue (tiene datos de la base: no se versiona)
+despliegue/libreria.env
+despliegue/*.env
