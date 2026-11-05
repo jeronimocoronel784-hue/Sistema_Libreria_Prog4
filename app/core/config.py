@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
+    # Opcional: esquema de PostgreSQL donde viven las tablas. Vacío = el
+    # esquema por defecto de la búsqueda (``public``).
+    POSTGRES_SCHEMA: str | None = None
 
     # --- Secretos ------------------------------------------------------------
     # La clave de firma del token: sin valor por defecto, nunca en el código.
@@ -80,6 +83,16 @@ class Settings(BaseSettings):
             f"{DRIVER}://{usuario}:{clave}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+
+    def connect_args(self) -> dict[str, dict[str, str]]:
+        """Argumentos de conexión del motor.
+
+        El esquema, si se indica, se fija con ``server_settings``: es un GUC de
+        sesión y PostgreSQL no lo acepta en la URL.
+        """
+        if not self.POSTGRES_SCHEMA:
+            return {}
+        return {"server_settings": {"search_path": self.POSTGRES_SCHEMA}}
 
 
 @lru_cache(maxsize=1)

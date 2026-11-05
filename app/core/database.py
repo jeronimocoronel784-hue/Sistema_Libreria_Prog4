@@ -18,10 +18,10 @@ from collections.abc import AsyncGenerator
 from fastapi import Request
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
-    AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import get_settings
 
@@ -38,6 +38,7 @@ def init_engine_and_session() -> tuple[AsyncEngine, async_sessionmaker[AsyncSess
         pool_size=settings.POOL_SIZE,
         max_overflow=settings.MAX_OVERFLOW,
         pool_pre_ping=True,
+        connect_args=settings.connect_args(),
         future=True,
     )
     session_factory = async_sessionmaker(

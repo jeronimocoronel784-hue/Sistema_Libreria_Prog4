@@ -1,9 +1,13 @@
-"""Contratos del módulo clientes."""
+"""Contratos del módulo clientes.
+
+Los contratos de entrada rechazan los campos que no declaran
+(``extra="forbid"``).
+"""
 
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
 
-from app.modules.common.schemas import VentaResumen
+from app.modules.common.schemas import EntradaBase, VentaResumen
 
 __all__ = [
     "ClienteCreate",
@@ -16,12 +20,12 @@ __all__ = [
 ]
 
 
-class ClienteCreate(SQLModel):
+class ClienteCreate(EntradaBase):
     nombre: str = Field(min_length=1)
     email: EmailStr = Field(min_length=3)
 
 
-class ClienteUpdate(SQLModel):
+class ClienteUpdate(EntradaBase):
     nombre: str | None = Field(default=None, min_length=1)
     email: EmailStr | None = Field(default=None, min_length=3)
 
@@ -32,7 +36,7 @@ class ClienteRead(SQLModel):
     email: str
 
 
-class PerfilCreate(SQLModel):
+class PerfilCreate(EntradaBase):
     telefono: str | None = None
     direccion: str | None = None
 

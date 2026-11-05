@@ -1,4 +1,9 @@
-"""Contratos del módulo ventas."""
+"""Contratos del módulo ventas.
+
+Los contratos de entrada rechazan los campos que no declaran
+(``extra="forbid"``): ni el precio ni el total viajan en el cuerpo (RN-09),
+los calcula el servidor.
+"""
 
 from datetime import datetime
 from decimal import Decimal
@@ -7,13 +12,15 @@ from typing import Self
 from pydantic import model_validator
 from sqlmodel import Field, SQLModel
 
+from app.modules.common.schemas import EntradaBase
 
-class RenglonIn(SQLModel):
+
+class RenglonIn(EntradaBase):
     libro_id: int
     cantidad: int = Field(gt=0)
 
 
-class VentaCreate(SQLModel):
+class VentaCreate(EntradaBase):
     cliente_id: int
     renglones: list[RenglonIn] = Field(min_length=1)
 

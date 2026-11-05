@@ -1,70 +1,84 @@
-"""Lógica del módulo autores."""
+"""Lógica del módulo autores.
 
-from fastapi import HTTPException
+El servicio recibe el Unit of Work y lo abre con ``async with``; nunca lo
+construye (lo hace el router, con una dependencia).
+"""
+
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
-from sqlmodel import select
 
+from app.core.errors import Conflicto, RecursoNoEncontrado
+from app.core.paginacion import Page, PageParams
 from app.modules.autores.models import Autor
 from app.modules.autores.schemas import AutorCreate, AutorUpdate
-from app.modules.libros.models import LibroAutor
+from app.modules.autores.unit_of_work import AutoresUnitOfWork
 
-_MSJ_CONFLICTO = "No se pudo guardar el autor: el id ya existe o los datos son inválidos."
+_MSJ_CONFLICTO = "No se pudo guardar el autor: el nombre ya está en uso."
 
 
-async def crear(session: AsyncSession, data: AutorCreate) -> Autor:
+async def crear(uow: AutoresUnitOfWork, data: AutorCreate) -> Autor:
+    """Alta de autor. La unicidad la garantiza la base (409)."""
     autor = Autor(nombre=data.nombre, nacionalidad=data.nacionalidad)
-    session.add(autor)
     try:
-        await session.commit()
+        async with uow:
+            await uow.autores.add(autor)
     except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=_MSJ_CONFLICTO)
-    await session.refresh(autor)
+        raise Conflicto(_MSJ_CONFLICTO) from None
     return autor
 
 
-async def listar(
-    session: AsyncSession, limit: int = 20, offset: int = 0
-) -> list[Autor]:
-    # sin relaciones en respuesta: el listado no precarga a propósito.
-    res = await session.execute(select(Autor).offset(offset).limit(limit))
-    return list(res.scalars().all())
+async def listar(uow: AutoresUnitOfWork, params: PageParams) -> Page[Autor]:
+    """Listado paginado de autores."""
+    async with uow:
+        return await uow.autores.list_page(params)
 
 
-async def obtener(session: AsyncSession, autor_id: int) -> Autor:
-    autor = await session.get(Autor, autor_id)
+async def obtener(uow: AutoresUnitOfWork, autor_id: int) -> Autor:
+    """Autor por id. 404 si no existe."""
+    async with uow:
+        autor = await uow.autores.get_by_id(autor_id)
     if autor is None:
-        raise HTTPException(status_code=404, detail="Autor no encontrado.")
+        raise RecursoNoEncontrado("el autor", autor_id)
     return autor
 
 
 async def actualizar(
-    session: AsyncSession, autor_id: int, data: AutorUpdate
+    uow: AutoresUnitOfWork, autor_id: int, data: AutorUpdate
 ) -> Autor:
-    autor = await obtener(session, autor_id)
-    for campo, valor in data.model_dump(exclude_unset=True).items():
-        setattr(autor, campo, valor)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=_MSJ_CONFLICTO)
-    await session.refresh(autor)
+    """PATCH parcial: sólo se aplican los campos enviados."""
+    async with uow:
+        autor = await uow.autores.get_by_id(autor_id)
+        if autor is None:
+            raise RecursoNoEncontrado("el autor", autor_id)
+        for campo, valor in data.model_dump(exclude_unset=True).items():
+            setattr(autor, campo, valor)
+        try:
+            await uow.autores.update(autor)
+        except IntegrityError:
+            raise Conflicto(_MSJ_CONFLICTO) from None
     return autor
 
 
 async def libros_del_autor(
-    session: AsyncSession, autor_id: int, limit: int = 20, offset: int = 0
-) -> list[LibroAutor]:
-    """Autorías del autor con su libro precargado (número fijo de consultas)."""
-    await obtener(session, autor_id)
-    res = await session.execute(
-        select(LibroAutor)
-        .where(LibroAutor.autor_id == autor_id)
-        .options(joinedload(LibroAutor.libro))
-        .offset(offset)
-        .limit(limit)
+    uow: AutoresUnitOfWork, autor_id: int, params: PageParams
+) -> Page:
+    """Autorías del autor con su libro, paginadas (número fijo de consultas)."""
+    async with uow:
+        autor = await uow.autores.get_by_id(autor_id)
+        if autor is None:
+            raise RecursoNoEncontrado("el autor", autor_id)
+        pagina = await uow.autores.listar_autorias(autor_id, params)
+
+    return Page.create(
+        items=[
+            {
+                "libro_id": a.libro_id,
+                "isbn": a.libro.isbn if a.libro is not None else "",
+                "titulo": a.libro.titulo if a.libro is not None else "",
+                "rol": a.rol,
+                "orden": a.orden,
+            }
+            for a in pagina.items
+        ],
+        total=pagina.total,
+        params=params,
     )
-    return list(res.scalars().all())

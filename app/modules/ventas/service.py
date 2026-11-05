@@ -1,107 +1,168 @@
-"""Lógica del módulo ventas (incluye RenglonVenta por composición)."""
+"""Lógica del módulo ventas.
+
+Reglas duras que este módulo implementa:
+
+- **RN-09**: la venta nace con sus renglones (al menos uno, sin libros
+  repetidos), con el precio de cada renglón **copiado del libro** y el total
+  **calculado por el servidor**. Las ventas no se modifican: no hay PATCH.
+- **RN-10**: registrar una venta descuenta el stock de cada libro y deja un
+  movimiento por renglón. Si un libro no alcanza, no queda ninguna de esas
+  escrituras: ni la venta, ni los renglones, ni los descuentos, ni los
+  movimientos. Eso lo garantiza **un solo Unit of Work**: las cuatro clases de
+  escritura (venta, renglones, stock y movimientos) viven en la misma
+  transacción.
+- **RN-13**: un libro dado de baja no se puede vender (409).
+- **RN-14**: lo propio sólo pide estar autenticado: un cliente ve sus ventas y
+  ninguna otra.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy.exc import IntegrityError
 
 from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
-from sqlmodel import select
 
-from app.modules.libros.models import Libro
+from app.core.errors import Conflicto, RecursoNoEncontrado
+from app.core.paginacion import Page, PageParams
+from app.modules.libros.service import MOTIVO_VENTA, aplicar_movimiento_stock
 from app.modules.ventas.models import RenglonVenta, Venta
 from app.modules.ventas.schemas import VentaCreate
+from app.modules.ventas.unit_of_work import VentasUnitOfWork
 
 _MSJ_CONFLICTO = (
     "No se pudo registrar la venta: cliente o libro inexistente, "
-    "o datos inválidos."
+    "libro dado de baja o stock insuficiente."
 )
 
+ROLES_PERSONAL = ("ADMIN", "VENDEDOR")
 
-async def crear(session: AsyncSession, data: VentaCreate) -> dict:
-    """Crea la venta con sus renglones.
 
-    El precio se copia del libro y el total lo calcula el servidor.
-    La existencia del cliente la valida la base (FK -> 409).
+async def registrar(
+    uow: VentasUnitOfWork,
+    data: VentaCreate,
+    *,
+    usuario_id: int,
+) -> Venta:
+    """Registra la venta con sus renglones, el descuento de stock y los movimientos.
+
+    Todo en **un solo bloque**: si un libro no alcanza, no queda ninguna
+    escritura (ni venta, ni renglones, ni descuentos, ni movimientos).
     """
-    res = await session.execute(
-        select(Libro).where(
-            Libro.id.in_([r.libro_id for r in data.renglones])
-        )
-    )
-    precios = {libro.id: libro.precio for libro in res.scalars().all()}
-    faltantes = [r.libro_id for r in data.renglones if r.libro_id not in precios]
-    if faltantes:
-        raise HTTPException(
-            status_code=409,
-            detail="No se pudo registrar la venta: libro inexistente.",
-        )
-    total = sum(precios[r.libro_id] * r.cantidad for r in data.renglones)
-    venta = Venta(cliente_id=data.cliente_id, total=total)
-    session.add(venta)
     try:
-        await session.flush()
-        for renglon in data.renglones:
-            session.add(
-                RenglonVenta(
-                    venta_id=venta.id,
-                    libro_id=renglon.libro_id,
-                    cantidad=renglon.cantidad,
-                    precio_unitario=precios[renglon.libro_id],
+        async with uow:
+            cliente = await uow.clientes.get_by_id(data.cliente_id)
+            if cliente is None:
+                raise Conflicto(
+                    "No se pudo registrar la venta: el cliente no existe."
                 )
+
+            libros = await uow.libros.obtener_varios_including_deleted(
+                [r.libro_id for r in data.renglones]
             )
-        await session.commit()
+            if len(libros) != len(data.renglones):
+                raise Conflicto(
+                    "No se pudo registrar la venta: algún libro no existe."
+                )
+
+            # Comprobaciones antes de escribir: si alguna falla, el bloque
+            # revierte y no queda nada a medias.
+            for renglon in data.renglones:
+                libro = libros[renglon.libro_id]
+                if libro.borrado_en is not None:
+                    raise Conflicto(
+                        "No se pudo registrar la venta: el libro "
+                        f"'{libro.titulo}' está dado de baja."
+                    )
+                if libro.stock < renglon.cantidad:
+                    raise Conflicto(
+                        "No se pudo registrar la venta: no alcanza el stock de "
+                        f"'{libro.titulo}'."
+                    )
+
+            # El precio se copia del libro y el total lo calcula el servidor.
+            total = sum(
+                libros[r.libro_id].precio * r.cantidad for r in data.renglones
+            )
+            venta = Venta(cliente_id=data.cliente_id, total=total)
+            await uow.ventas.add(venta)  # flush: ya tenemos venta.id
+
+            for renglon in data.renglones:
+                libro = libros[renglon.libro_id]
+                await uow.renglones.add(
+                    RenglonVenta(
+                        venta_id=venta.id,
+                        libro_id=libro.id,
+                        cantidad=renglon.cantidad,
+                        precio_unitario=libro.precio,
+                    )
+                )
+                # Descuento del stock: pasa por el único punto de escritura.
+                await aplicar_movimiento_stock(
+                    uow,
+                    libro,
+                    -renglon.cantidad,
+                    MOTIVO_VENTA,
+                    usuario_id,
+                    venta_id=venta.id,
+                )
     except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=_MSJ_CONFLICTO)
-    return await obtener_detalle(session, venta.id)
+        raise Conflicto(_MSJ_CONFLICTO) from None
+
+    return venta
 
 
-async def listar(
-    session: AsyncSession, limit: int = 20, offset: int = 0
-) -> list[Venta]:
-    # sin relaciones en respuesta: el listado no precarga a propósito.
-    res = await session.execute(
-        select(Venta).order_by(Venta.id).offset(offset).limit(limit)
+async def listar(uow: VentasUnitOfWork, params: PageParams) -> Page[Venta]:
+    """Listado paginado de ventas (sólo el personal)."""
+    async with uow:
+        return await uow.ventas.listar(params)
+
+
+async def obtener_detalle(
+    uow: VentasUnitOfWork,
+    venta_id: int,
+    *,
+    usuario_id: int,
+) -> Venta:
+    """Detalle de una venta.
+
+    El personal (ADMIN o VENDEDOR) puede ver cualquier venta. Un cliente ve
+    **sólo las suyas**: la comprobación de dueño devuelve 403 si la venta es de
+    otro (RN-14).
+    """
+    async with uow:
+        venta = await uow.ventas.get_detalle(venta_id)
+        if venta is None:
+            raise RecursoNoEncontrado("la venta", venta_id)
+
+        roles_vigentes = await uow.roles.roles_vigentes(usuario_id)
+        if not set(roles_vigentes) & set(ROLES_PERSONAL):
+            # Es un cliente: la venta tiene que ser suya.
+            cliente = await uow.clientes.get_by_usuario(usuario_id)
+            if cliente is None or venta.cliente_id != cliente.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tenés permiso para ver esta venta.",
+                )
+    return venta
+
+
+async def mis_ventas(
+    uow: VentasUnitOfWork, usuario_id: int, params: PageParams
+) -> Page:
+    """Ventas del cliente de la sesión (RN-14).
+
+    Un usuario del personal no tiene ficha de cliente: su lista es vacía.
+    """
+    async with uow:
+        cliente = await uow.clientes.get_by_usuario(usuario_id)
+        if cliente is None:
+            return Page.create(items=[], total=0, params=params)
+        pagina = await uow.ventas.listar_de_cliente(cliente.id, params)
+
+    return Page.create(
+        items=[
+            {"id": v.id, "fecha": v.fecha, "total": v.total} for v in pagina.items
+        ],
+        total=pagina.total,
+        params=params,
     )
-    return list(res.scalars().all())
-
-
-async def obtener_detalle(session: AsyncSession, venta_id: int) -> dict:
-    """Detalle con cliente y renglones en un número fijo de consultas."""
-    res = await session.execute(
-        select(Venta)
-        .where(Venta.id == venta_id)
-        .options(
-            joinedload(Venta.cliente),
-            selectinload(Venta.renglones).joinedload(RenglonVenta.libro),
-        )
-    )
-    venta = res.scalars().first()
-    if venta is None:
-        raise HTTPException(status_code=404, detail="Venta no encontrada.")
-    renglones = []
-    for r in sorted(venta.renglones, key=lambda x: x.id or 0):
-        subtotal = r.precio_unitario * r.cantidad
-        renglones.append(
-            {
-                "libro_id": r.libro_id,
-                "titulo": r.libro.titulo if r.libro is not None else None,
-                "cantidad": r.cantidad,
-                "precio_unitario": r.precio_unitario,
-                "subtotal": subtotal,
-            }
-        )
-    return {
-        "id": venta.id,
-        "fecha": venta.fecha,
-        "total": venta.total,
-        "cliente": (
-            {
-                "id": venta.cliente.id,
-                "nombre": venta.cliente.nombre,
-                "email": venta.cliente.email,
-            }
-            if venta.cliente is not None
-            else None
-        ),
-        "renglones": renglones,
-    }

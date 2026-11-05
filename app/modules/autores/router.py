@@ -1,68 +1,86 @@
-"""Rutas del módulo autores."""
+"""Rutas del módulo autores.
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+Dos routers:
+
+- ``router``: lecturas, que son **públicas** (el catálogo es público).
+- ``router_admin``: escrituras, que van en el grupo **protegido** y exigen rol
+  ADMIN.
+
+El router construye el Unit of Work con una dependencia y se lo pasa al
+servicio sin abrirlo.
+"""
+
+from fastapi import APIRouter, Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
+from app.core.dependencies import UsuarioActual, requiere_rol
+from app.core.paginacion import Page, PageParamsDep
 from app.modules.autores import service
-from app.modules.autores.schemas import (
-    AutorCreate,
-    AutorRead,
-    AutorUpdate,
-    LibroConRol,
-)
+from app.modules.autores.schemas import AutorCreate, AutorRead, AutorUpdate
+from app.modules.autores.unit_of_work import AutoresUnitOfWork
 
 router = APIRouter(prefix="/autores", tags=["autores"])
+router_admin = APIRouter(prefix="/autores", tags=["autores"])
 
 
-@router.post("/", response_model=AutorRead, status_code=201)
-async def crear_autor(
-    data: AutorCreate, session: AsyncSession = Depends(get_session)
-) -> service.Autor:
-    return await service.crear(session, data)
-
-
-@router.get("/", response_model=list[AutorRead])
-async def listar_autores(
+def get_autores_uow(
     session: AsyncSession = Depends(get_session),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-) -> list:
-    return await service.listar(session, limit, offset)
+) -> AutoresUnitOfWork:
+    """Construye el Unit of Work de autores con la sesión de la petición."""
+    return AutoresUnitOfWork(session)
+
+
+@router.get("/", response_model=Page[AutorRead])
+async def listar_autores(
+    params: PageParamsDep,
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
+) -> dict:
+    """Listado paginado de autores. 200; 422 si el paging no cumple el contrato."""
+    pagina = await service.listar(uow, params)
+    return pagina.model_dump()
 
 
 @router.get("/{autor_id}", response_model=AutorRead)
 async def obtener_autor(
-    autor_id: int, session: AsyncSession = Depends(get_session)
-) -> service.Autor:
-    return await service.obtener(session, autor_id)
+    autor_id: int,
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
+) -> dict:
+    """Autor por id. 200; 404 si no existe; 422 si el id no es entero."""
+    autor = await service.obtener(uow, autor_id)
+    return autor.model_dump()
 
 
-@router.patch("/{autor_id}", response_model=AutorRead)
+@router.get("/{autor_id}/libros")
+async def libros_del_autor(
+    autor_id: int,
+    params: PageParamsDep,
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
+) -> dict:
+    """Libros del autor, paginados. 200; 404 si el autor no existe."""
+    pagina = await service.libros_del_autor(uow, autor_id, params)
+    return pagina.model_dump()
+
+
+@router_admin.post("/", response_model=AutorRead, status_code=201)
+async def crear_autor(
+    data: AutorCreate,
+    admin: UsuarioActual = Depends(requiere_rol("ADMIN")),
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
+) -> dict:
+    """Alta de autor (sólo ADMIN). 201; 409 si el nombre ya existe; 422 si el
+    cuerpo no cumple el contrato."""
+    autor = await service.crear(uow, data)
+    return autor.model_dump()
+
+
+@router_admin.patch("/{autor_id}", response_model=AutorRead)
 async def actualizar_autor(
     autor_id: int,
     data: AutorUpdate,
-    session: AsyncSession = Depends(get_session),
-) -> service.Autor:
-    return await service.actualizar(session, autor_id, data)
-
-
-@router.get("/{autor_id}/libros", response_model=list[LibroConRol])
-async def libros_del_autor(
-    autor_id: int,
-    session: AsyncSession = Depends(get_session),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-) -> list[dict]:
-    autorias = await service.libros_del_autor(session, autor_id, limit, offset)
-    return [
-        {
-            "libro_id": a.libro_id,
-            "isbn": a.libro.isbn,
-            "titulo": a.libro.titulo,
-            "rol": a.rol,
-            "orden": a.orden,
-        }
-        for a in autorias
-        if a.libro is not None
-    ]
+    admin: UsuarioActual = Depends(requiere_rol("ADMIN")),
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
+) -> dict:
+    """PATCH parcial del autor (sólo ADMIN). 200; 404; 409; 422."""
+    autor = await service.actualizar(uow, autor_id, data)
+    return autor.model_dump()

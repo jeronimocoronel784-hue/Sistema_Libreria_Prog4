@@ -1,140 +1,206 @@
-"""Lógica del módulo libros (incluye la asociación LibroAutor)."""
+"""Lógica del módulo libros.
 
-from fastapi import HTTPException
+Reglas duras que este módulo implementa:
+
+- **El stock tiene una sola vía de escritura** (RN-11): ``aplicar_movimiento_stock``
+  es el **único** punto del sistema donde se escribe ``libro.stock``, y lo hace
+  siempre junto a un movimiento. Lo usan el alta con stock inicial, la
+  reposición y el registro de ventas.
+- **El borrado es lógico** (RN-13): ``dar_de_baja`` anota ``borrado_en`` y no
+  borra la fila, porque las ventas viejas la siguen apuntando.
+- El ISBN es único **entre los vigentes**: lo garantiza el índice único parcial
+  de la base, no una consulta previa.
+"""
+
+from __future__ import annotations
+
+from typing import Protocol
+
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
-from sqlmodel import select
 
-from app.modules.libros.models import Libro, LibroAutor
-from app.modules.libros.schemas import LibroCreate, LibroUpdate
-
-_MSJ_CONFLICTO = (
-    "No se pudo guardar el libro: ISBN duplicado o "
-    "editorial, género o autor inexistente."
+from app.core.errors import Conflicto, RecursoNoEncontrado
+from app.core.paginacion import Page, PageParams
+from app.modules.libros.models import Libro, MovimientoStock
+from app.modules.libros.repository import (
+    LibroRepository,
+    MovimientoStockRepository,
 )
+from app.modules.libros.schemas import LibroCreate, LibroUpdate
+from app.modules.libros.unit_of_work import LibrosUnitOfWork
+
+_MSJ_CONFLICTO_LIBRO = (
+    "No se pudo guardar el libro: el ISBN ya está en uso entre los vigentes, "
+    "o la editorial, el género o el autor no existen."
+)
+_MSJ_LIBRO_DADO_DE_BAJA = "El libro está dado de baja: no se puede reponer."
+
+MOTIVO_STOCK_INICIAL = "Stock inicial"
+MOTIVO_REPOSICION = "Reposición"
+MOTIVO_VENTA = "Venta"
 
 
-async def crear(session: AsyncSession, data: LibroCreate) -> dict:
-    """Alta con ids existentes. Sin `if` previos: la base valida las FK (409)."""
+class StockUnitOfWork(Protocol):
+    """Lo que hace falta del Unit of Work para escribir stock.
+
+    Lo satisfacen ``LibrosUnitOfWork`` y ``VentasUnitOfWork``: los dos
+    tienen el repositorio de libros y el de movimientos.
+    """
+
+    libros: LibroRepository
+    movimientos: MovimientoStockRepository
+
+
+async def aplicar_movimiento_stock(
+    uow: StockUnitOfWork,
+    libro: Libro,
+    cantidad: int,
+    motivo: str,
+    usuario_id: int,
+    *,
+    venta_id: int | None = None,
+) -> MovimientoStock:
+    """**Único punto de escritura del stock** (RN-11).
+
+    Suma el movimiento al stock del libro y deja la fila en
+    ``movimiento_stock``. ``cantidad`` es con signo: positiva entra, negativa
+    sale. El stock de un libro es siempre la suma de sus movimientos.
+
+    Lo usan las tres operaciones que mueven stock: el alta con stock inicial,
+    la reposición y el registro de ventas.
+    """
+    libro.stock += cantidad
+    await uow.libros.update(libro)
+    return await uow.movimientos.add(
+        MovimientoStock(
+            libro_id=libro.id,
+            venta_id=venta_id,
+            usuario_id=usuario_id,
+            cantidad=cantidad,
+            motivo=motivo,
+        )
+    )
+
+
+async def crear(
+    uow: LibrosUnitOfWork,
+    data: LibroCreate,
+    *,
+    usuario_id: int,
+) -> Libro:
+    """Alta de libro con stock inicial y sus autores, en una sola transacción.
+
+    El stock inicial no se escribe directo en el libro: entra como un
+    movimiento (RN-11). Sin ``if`` previos: la base valida las FK y el ISBN
+    único entre los vigentes, y el error se traduce a 409.
+    """
     libro = Libro(
         isbn=data.isbn,
         titulo=data.titulo,
         precio=data.precio,
-        stock=data.stock,
+        stock=0,
         editorial_id=data.editorial_id,
         genero_id=data.genero_id,
     )
-    session.add(libro)
+
     try:
-        await session.flush()
-        for item in data.autores:
-            session.add(
-                LibroAutor(
-                    libro_id=libro.id,
-                    autor_id=item.autor_id,
-                    rol=item.rol,
-                    orden=item.orden,
+        async with uow:
+            await uow.libros.add(libro)  # flush: ya tenemos libro.id
+            for autoria in data.autores:
+                await uow.autorias.agregar(
+                    libro.id, autoria.autor_id, autoria.rol, autoria.orden
                 )
-            )
-        await session.commit()
+            if data.stock_inicial > 0:
+                await aplicar_movimiento_stock(
+                    uow,
+                    libro,
+                    data.stock_inicial,
+                    MOTIVO_STOCK_INICIAL,
+                    usuario_id,
+                )
     except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=_MSJ_CONFLICTO)
-    return await obtener_detalle(session, libro.id)
+        raise Conflicto(_MSJ_CONFLICTO_LIBRO) from None
+
+    return libro
 
 
 async def listar(
-    session: AsyncSession,
-    limit: int = 20,
-    offset: int = 0,
+    uow: LibrosUnitOfWork,
+    params: PageParams,
     titulo: str | None = None,
     genero_id: int | None = None,
-) -> list[Libro]:
-    consulta = (
-        select(Libro)
-        .options(joinedload(Libro.editorial), joinedload(Libro.genero))
-        .offset(offset)
-        .limit(limit)
-    )
-    if titulo:
-        # Parámetro ligado: SQLAlchemy lo envía como bind parameter, nunca
-        # concatena texto del usuario en el SQL.
-        consulta = consulta.where(Libro.titulo.ilike(f"%{titulo}%"))
-    if genero_id is not None:
-        consulta = consulta.where(Libro.genero_id == genero_id)
-    res = await session.execute(consulta)
-    return list(res.scalars().all())
+) -> Page[Libro]:
+    """Listado paginado del catálogo (sólo los vigentes)."""
+    async with uow:
+        return await uow.libros.listar(params, titulo=titulo, genero_id=genero_id)
 
 
-async def obtener_detalle(session: AsyncSession, libro_id: int) -> dict:
-    """Detalle con editorial, género y autores en un número fijo de consultas."""
-    res = await session.execute(
-        select(Libro)
-        .where(Libro.id == libro_id)
-        .options(
-            joinedload(Libro.editorial),
-            joinedload(Libro.genero),
-            selectinload(Libro.autorias).joinedload(LibroAutor.autor),
-        )
-    )
-    libro = res.scalars().first()
+async def obtener_detalle(uow: LibrosUnitOfWork, libro_id: int) -> Libro:
+    """Detalle con editorial, género y autores, en un número fijo de consultas."""
+    async with uow:
+        libro = await uow.libros.get_detalle(libro_id)
     if libro is None:
-        raise HTTPException(status_code=404, detail="Libro no encontrado.")
-    return {
-        "id": libro.id,
-        "isbn": libro.isbn,
-        "titulo": libro.titulo,
-        "precio": libro.precio,
-        "stock": libro.stock,
-        "editorial_id": libro.editorial_id,
-        "genero_id": libro.genero_id,
-        "editorial": (
-            {
-                "id": libro.editorial.id,
-                "nombre": libro.editorial.nombre,
-                "pais": libro.editorial.pais,
-            }
-            if libro.editorial is not None
-            else None
-        ),
-        "genero": (
-            {"id": libro.genero.id, "nombre": libro.genero.nombre}
-            if libro.genero is not None
-            else None
-        ),
-        "autores": [
-            {
-                "autor_id": a.autor_id,
-                "rol": a.rol,
-                "orden": a.orden,
-                "autor": (
-                    {
-                        "id": a.autor.id,
-                        "nombre": a.autor.nombre,
-                        "nacionalidad": a.autor.nacionalidad,
-                    }
-                    if a.autor is not None
-                    else None
-                ),
-            }
-            for a in sorted(libro.autorias, key=lambda x: x.orden)
-        ],
-    }
+        raise RecursoNoEncontrado("el libro", libro_id)
+    return libro
 
 
 async def actualizar(
-    session: AsyncSession, libro_id: int, data: LibroUpdate
-) -> dict:
-    res = await session.execute(select(Libro).where(Libro.id == libro_id))
-    libro = res.scalars().first()
-    if libro is None:
-        raise HTTPException(status_code=404, detail="Libro no encontrado.")
-    for campo, valor in data.model_dump(exclude_unset=True).items():
-        setattr(libro, campo, valor)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=_MSJ_CONFLICTO)
-    return await obtener_detalle(session, libro_id)
+    uow: LibrosUnitOfWork, libro_id: int, data: LibroUpdate
+) -> Libro:
+    """PATCH parcial: sólo título y precio. El stock no se edita (RN-11)."""
+    async with uow:
+        libro = await uow.libros.get_detalle(libro_id)
+        if libro is None:
+            raise RecursoNoEncontrado("el libro", libro_id)
+        for campo, valor in data.model_dump(exclude_unset=True).items():
+            setattr(libro, campo, valor)
+        try:
+            await uow.libros.update(libro)
+        except IntegrityError:
+            raise Conflicto(_MSJ_CONFLICTO_LIBRO) from None
+    return libro
+
+
+async def dar_de_baja(uow: LibrosUnitOfWork, libro_id: int) -> None:
+    """Borrado lógico: anota ``borrado_en`` y conserva la fila (RN-13).
+
+    La fila sigue existiendo porque las ventas viejas la apuntan y tienen que
+    seguir mostrando el título. El ISBN queda libre para volver a cargarlo.
+    """
+    async with uow:
+        libro = await uow.libros.soft_delete(libro_id)
+        if libro is None:
+            raise RecursoNoEncontrado("el libro", libro_id)
+
+
+async def reponer(
+    uow: LibrosUnitOfWork,
+    libro_id: int,
+    cantidad: int,
+    *,
+    usuario_id: int,
+) -> Libro:
+    """Reposición de stock: el stock sube y queda un movimiento (RN-11).
+
+    Un libro dado de baja no se puede reponer (RN-13): 409.
+    """
+    async with uow:
+        libro = await uow.libros.get_by_id_including_deleted(libro_id)
+        if libro is None:
+            raise RecursoNoEncontrado("el libro", libro_id)
+        if libro.borrado_en is not None:
+            raise Conflicto(_MSJ_LIBRO_DADO_DE_BAJA)
+        await aplicar_movimiento_stock(
+            uow, libro, cantidad, MOTIVO_REPOSICION, usuario_id
+        )
+    return libro
+
+
+async def movimientos(
+    uow: LibrosUnitOfWork, libro_id: int, params: PageParams
+) -> Page[MovimientoStock]:
+    """Movimientos de stock de un libro, paginados (sólo ADMIN)."""
+    async with uow:
+        libro = await uow.libros.get_by_id_including_deleted(libro_id)
+        if libro is None:
+            raise RecursoNoEncontrado("el libro", libro_id)
+        return await uow.movimientos.listar_por_libro(libro_id, params)

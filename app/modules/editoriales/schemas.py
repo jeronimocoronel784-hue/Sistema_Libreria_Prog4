@@ -1,8 +1,12 @@
-"""Contratos del módulo editoriales."""
+"""Contratos del módulo editoriales.
+
+Los contratos de entrada rechazan los campos que no declaran
+(``extra="forbid"``).
+"""
 
 from sqlmodel import Field, SQLModel
 
-from app.modules.common.schemas import LibroResumen
+from app.modules.common.schemas import EntradaBase, LibroResumen
 
 __all__ = [
     "EditorialCreate",
@@ -12,12 +16,12 @@ __all__ = [
 ]
 
 
-class EditorialCreate(SQLModel):
+class EditorialCreate(EntradaBase):
     nombre: str = Field(min_length=1)
     pais: str | None = None
 
 
-class EditorialUpdate(SQLModel):
+class EditorialUpdate(EntradaBase):
     nombre: str | None = Field(default=None, min_length=1)
     pais: str | None = None
 

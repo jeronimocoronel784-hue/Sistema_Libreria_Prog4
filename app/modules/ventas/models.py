@@ -9,7 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.modules.clientes.models import Cliente
-    from app.modules.libros.models import Libro
+    from app.modules.libros.models import Libro, MovimientoStock
 
 
 class Venta(SQLModel, table=True):
@@ -28,6 +28,7 @@ class Venta(SQLModel, table=True):
 
     cliente: Optional["Cliente"] = Relationship(back_populates="ventas")
     renglones: list["RenglonVenta"] = Relationship(back_populates="venta")
+    movimientos: list["MovimientoStock"] = Relationship(back_populates="venta")
 
 
 class RenglonVenta(SQLModel, table=True):

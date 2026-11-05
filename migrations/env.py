@@ -20,12 +20,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
 # Importar TODOS los modelos para que SQLModel.metadata esté completo.
-from app.modules.autores.models import Autor  # noqa: F401
-from app.modules.clientes.models import Cliente, PerfilCliente  # noqa: F401
-from app.modules.editoriales.models import Editorial  # noqa: F401
-from app.modules.generos.models import Genero  # noqa: F401
-from app.modules.libros.models import Libro, LibroAutor  # noqa: F401
-from app.modules.ventas.models import RenglonVenta, Venta  # noqa: F401
+# `app/models.py` es el registro central: importa los de todos los módulos.
+import app.models  # noqa: F401
 from app.core.config import get_settings
 
 config = context.config
@@ -34,7 +30,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # La URL real viene del entorno, nunca de alembic.ini.
-config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
+# El `%` se escapa porque configparser lo usa para la interpolación: sin esto,
+# una URL con parámetros (por ejemplo ``?options=-csearch_path%3Dmi_esquema``)
+# rompe la lectura de la opción.
+config.set_main_option(
+    "sqlalchemy.url", get_settings().DATABASE_URL.replace("%", "%%")
+)
 
 target_metadata = SQLModel.metadata
 
@@ -62,6 +63,7 @@ async def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=get_settings().connect_args(),
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
