@@ -1,38 +1,64 @@
 # Carga inicial (deja la base en estado conocido).
 # Requiere haber corrido: alembic upgrade head
-# Alternativa por comando: python scripts/seed.py
+# Alternativa por comando (la recomendada): python scripts/seed.py
+#
+# Los endpoints de escritura del catálogo son del ADMIN: hace falta la
+# sesión iniciada. Con la extensión «REST Client»:
+#   # @name loginAdmin
+#   POST http://localhost:8000/auth/login
+#   ...
 
-### Editorial base
-POST http://localhost:8000/editoriales/
+@base = http://localhost:8000
+
+### Login del administrador
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### Editorial base -> 201
+# @no-cookie-jar
+POST {{base}}/editoriales/
 Content-Type: application/json
 
 {
   "nombre": "Sudamericana",
   "pais": "Argentina"
 }
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
 
-### Género base
-POST http://localhost:8000/generos/
+### Género base -> 201
+# @no-cookie-jar
+POST {{base}}/generos/
 Content-Type: application/json
 
 {
   "nombre": "Novela"
 }
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
 
-### Autores base
-POST http://localhost:8000/autores/
+### Autor base -> 201
+# @no-cookie-jar
+POST {{base}}/autores/
 Content-Type: application/json
 
 {
   "nombre": "Julio Cortázar",
   "nacionalidad": "Argentina"
 }
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
 
-### Cliente base
-POST http://localhost:8000/clientes/
+### Cliente base -> 201
+# @no-cookie-jar
+POST {{base}}/clientes/
 Content-Type: application/json
 
 {
   "nombre": "Tomás Ríos",
   "email": "tomas@example.com"
 }
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}

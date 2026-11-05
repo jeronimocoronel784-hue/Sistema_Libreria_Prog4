@@ -1,12 +1,34 @@
-# C-01: parámetro de ruta que no es entero.
-# Esperado: 422, sin ejecutar el handler.
-# Cada caso indica la respuesta esperada en un comentario.
+### Caso C-01: un parámetro de ruta que no es entero.
+### Con la sesión iniciada, la respuesta esperada es 422 y el handler NO se ejecuta.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
 
-### Editorial con id no entero -> 422
-GET http://localhost:8000/editoriales/abc
+@base = http://localhost:8000
 
-### Libro con id no entero -> 422
-GET http://localhost:8000/libros/xyz
+### Login del administrador (deja la cookie en la sesión).
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
 
-### Venta con id no entero -> 422
-GET http://localhost:8000/ventas/no-numero
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### GET /libros/abc -> 422
+# @no-cookie-jar
+GET {{base}}/libros/abc
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+# @name c01Libro
+###
+
+### GET /editoriales/xyz -> 422
+# @no-cookie-jar
+GET {{base}}/editoriales/xyz
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### GET /ventas/no-es-un-id -> 422
+# @no-cookie-jar
+GET {{base}}/ventas/no-es-un-id
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}

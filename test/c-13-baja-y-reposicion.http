@@ -1,0 +1,92 @@
+### Caso C-13: reponer un libro; darlo de baja; volver a cargar el mismo ISBN.
+### Reposición 200 con su movimiento; baja 204; el libro deja de aparecer en el
+### catálogo; el alta con el mismo ISBN, 201; un segundo vigente con ese
+### ISBN, 409; la venta vieja sigue mostrando el título.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del administrador
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### Reposición del libro 5 -> 200 (y deja su movimiento)
+# @no-cookie-jar
+POST {{base}}/libros/5/reponer
+Content-Type: application/json
+
+{
+  "cantidad": 10
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c13Reponer
+###
+
+### Baja lógica -> 204
+# @no-cookie-jar
+DELETE {{base}}/libros/5
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c13Baja
+###
+
+### El libro ya no aparece en el catálogo -> 404
+# @no-cookie-jar
+GET {{base}}/libros/5
+
+### @name c13NoAparece
+###
+
+### Volvemos a cargar el mismo ISBN -> 201
+# @no-cookie-jar
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0005-9",
+  "titulo": "Bestiario (nuevo)",
+  "precio": "24000.00",
+  "stock_inicial": 1,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": []
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c13MismoIsbn
+###
+
+### Un segundo vigente con el mismo ISBN -> 409
+# @no-cookie-jar
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0005-9",
+  "titulo": "Bestiario (otro)",
+  "precio": "24000.00",
+  "stock_inicial": 1,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": []
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c13IsbnRepetido
+###
+
+### La venta vieja sigue mostrando el título del libro dado de baja -> 200
+# @no-cookie-jar
+GET {{base}}/ventas/1
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c13VentaVieja
+###

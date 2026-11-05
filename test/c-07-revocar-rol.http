@@ -1,0 +1,106 @@
+### Caso C-07: revocar un rol con la sesión abierta.
+### La misma cookie recibe 403 en la petición siguiente (los roles se deciden
+### en la base, no en el token). La fila revocada sigue en el historial.
+### Un vencimiento en el pasado o sin zona horaria -> 422 (no 409).
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del administrador
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### Login de la cliente (usuario id 4: ana@example.com)
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana@example.com",
+  "password": "Demo1234!"
+}
+
+### Le asignamos el rol VENDEDOR -> 201
+# @no-cookie-jar
+POST {{base}}/usuarios/4/roles
+Content-Type: application/json
+
+{
+  "rol": "VENDEDOR"
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c07Asignar
+###
+
+### Con el rol asignado, la cliente entra -> 200
+# @no-cookie-jar
+GET {{base}}/ventas/
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### @name c07ConRol
+###
+
+### Revocamos el rol -> 200 (la fila no se borra, se escribe revocada_en)
+# @no-cookie-jar
+DELETE {{base}}/usuarios/4/roles/VENDEDOR
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c07Revocar
+###
+
+### La MISMA cookie, la petición siguiente -> 403
+# @no-cookie-jar
+GET {{base}}/ventas/
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### @name c07DespuesDeRevocar
+###
+
+### El historial sigue con la fila revocada -> 200
+# @no-cookie-jar
+GET {{base}}/usuarios/4/roles
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c07Historial
+###
+
+### Vencimiento en el pasado -> 422
+# @no-cookie-jar
+POST {{base}}/usuarios/4/roles
+Content-Type: application/json
+
+{
+  "rol": "VENDEDOR",
+  "vence_en": "2020-01-01T00:00:00+00:00"
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### Vencimiento sin zona horaria -> 422
+# @no-cookie-jar
+POST {{base}}/usuarios/4/roles
+Content-Type: application/json
+
+{
+  "rol": "VENDEDOR",
+  "vence_en": "2030-01-01T00:00:00"
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### Vencimiento con zona y en el futuro -> 201
+# @no-cookie-jar
+POST {{base}}/usuarios/4/roles
+Content-Type: application/json
+
+{
+  "rol": "VENDEDOR",
+  "vence_en": "2030-01-01T00:00:00+00:00"
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}

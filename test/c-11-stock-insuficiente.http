@@ -1,0 +1,50 @@
+### Caso C-11: venta con Rayuela (1 ejemplar, alcanza) y Bestiario
+### (2 ejemplares, hay 1) -> 409. No hay venta nueva, ni descuentos, ni
+### movimientos: el stock de Rayuela sigue en 10 y la suma de movimientos
+### coincide con el stock en los cinco libros.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del vendedor
+# @name loginVendedor
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendedor@example.com",
+  "password": "Demo1234!"
+}
+
+### Estado antes:
+###   SELECT id, titulo, stock FROM libro ORDER BY id;
+###   SELECT count(*) FROM venta;                -> 1
+###   SELECT count(*) FROM movimiento_stock;     -> 7
+
+### La venta que no alcanza -> 409
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [
+    {"libro_id": 1, "cantidad": 1},
+    {"libro_id": 5, "cantidad": 2}
+  ]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c11Venta
+###
+
+### Estado después (nada cambió):
+###   SELECT id, titulo, stock FROM libro ORDER BY id;   -> Rayuela sigue en 10
+###   SELECT count(*) FROM venta;                        -> 1
+###   SELECT count(*) FROM movimiento_stock;             -> 7
+###
+### La suma de los movimientos coincide con el stock en los cinco libros:
+###   SELECT l.id, l.stock, COALESCE(SUM(m.cantidad), 0) AS suma
+###   FROM libro l LEFT JOIN movimiento_stock m ON m.libro_id = l.id
+###   GROUP BY l.id, l.stock;   -> stock = suma en las cinco filas

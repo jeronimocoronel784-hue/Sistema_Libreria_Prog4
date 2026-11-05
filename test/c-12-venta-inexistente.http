@@ -1,0 +1,80 @@
+### Caso C-12: venta con un cliente o un libro inexistente, o con un libro
+### dado de baja. Los tres -> 409, sin dejar escrituras.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del vendedor
+# @name loginVendedor
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendedor@example.com",
+  "password": "Demo1234!"
+}
+
+### Login del administrador (para dar de baja un libro)
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### Damos de baja el libro 5 (Bestiario) -> 204
+# @no-cookie-jar
+DELETE {{base}}/libros/5
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c12Baja
+###
+
+### Cliente inexistente -> 409
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 999,
+  "renglones": [{"libro_id": 1, "cantidad": 1}]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c12Cliente
+###
+
+### Libro inexistente -> 409
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [{"libro_id": 999, "cantidad": 1}]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c12Libro
+###
+
+### Libro dado de baja -> 409
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [{"libro_id": 5, "cantidad": 1}]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c12DadoDeBaja
+###
+
+### Ninguna de las tres dejó escrituras:
+###   SELECT count(*) FROM venta;             -> 1
+###   SELECT count(*) FROM movimiento_stock;  -> 7

@@ -1,0 +1,80 @@
+### Caso C-06: 401 contra 403, y lo propio.
+### Sin sesión -> 401. Un vendedor que intenta crear un libro -> 403.
+### La cliente ve su venta (200) y no la ajena (403).
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Sin sesión, ruta protegida -> 401
+# @no-cookie-jar
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-9999-9",
+  "titulo": "No permitido",
+  "precio": "100.00",
+  "stock_inicial": 1,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": []
+}
+
+### @name c06SinSesion
+###
+
+### Login del vendedor
+# @name loginVendedor
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendedor@example.com",
+  "password": "Demo1234!"
+}
+
+### Un vendedor que crea un libro -> 403 (no es ADMIN)
+# @no-cookie-jar
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-9999-9",
+  "titulo": "No permitido",
+  "precio": "100.00",
+  "stock_inicial": 1,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": []
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c06VendedorCreaLibro
+###
+
+### Login de la cliente (ana@example.com)
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana@example.com",
+  "password": "Demo1234!"
+}
+
+### Sus propias ventas -> 200
+# @no-cookie-jar
+GET {{base}}/mis-ventas
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### @name c06MisVentas
+###
+
+### La venta 1 es de Lucía, no de Ana -> 403
+# @no-cookie-jar
+GET {{base}}/ventas/1
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### @name c06VentaAjena
+###

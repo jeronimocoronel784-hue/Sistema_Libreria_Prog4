@@ -1,0 +1,49 @@
+### Caso C-10: venta válida con dos renglones.
+### 201 con los precios copiados del libro y el total calculado por el servidor.
+### El stock de cada libro baja, hay un movimiento por renglón y el aviso del
+### comprobante sale en el registro después de la respuesta.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del vendedor
+# @name loginVendedor
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendedor@example.com",
+  "password": "Demo1234!"
+}
+
+### Stock antes de la venta:
+###   SELECT id, titulo, stock FROM libro ORDER BY id;
+###   Rayuela 10, Antología 5, Ficciones 8, Respiración 3, Bestiario 1
+
+### La venta -> 201
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [
+    {"libro_id": 1, "cantidad": 1},
+    {"libro_id": 3, "cantidad": 1}
+  ]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c10Venta
+###
+
+### Stock después:
+###   SELECT id, titulo, stock FROM libro ORDER BY id;
+###   Rayuela 9, Ficciones 7 (bajó uno de cada uno)
+###
+### Movimientos de la venta (uno por renglón):
+###   SELECT * FROM movimiento_stock WHERE venta_id = <id de la venta>;
+###
+### En el registro del servidor (después de la línea de la respuesta):
+###   INFO:     Comprobante de la venta <id> enviado a tomas@example.com

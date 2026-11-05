@@ -1,0 +1,20 @@
+=== 1. Estado inicial: un movimiento de la venta 1 ===
+  id=6  libro_id=1  venta_id=1  usuario_id=3  cantidad=-1  motivo=Venta
+
+=== 2. UPDATE sobre movimiento_stock -> debe ser RECHAZADO ===
+  ERROR:  La tabla movimiento_stock es de sólo agregado: UPDATE no está permitido
+  SQLSTATE: 23000
+
+=== 3. DELETE sobre movimiento_stock -> debe ser RECHAZADO ===
+  ERROR:  La tabla movimiento_stock es de sólo agregado: DELETE no está permitido
+  SQLSTATE: 23000
+
+=== 4. La tabla sigue intacta (los movimientos no se tocaron) ===
+  movimientos=20  suma de cantidades=28
+
+=== 5. INSERT: un movimiento nuevo sÃ­ se acepta ===
+  INSERT 0 1
+
+=== 6. INSERT con cantidad 0 -> el CHECK lo rechaza (cantidad <> 0) ===
+  ERROR:  el nuevo registro para la relación «movimiento_stock» viola la restricción «check» «ck_movimiento_stock_cantidad_no_cero»
+  SQLSTATE: 23514

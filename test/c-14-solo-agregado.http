@@ -1,0 +1,13 @@
+### Caso C-14: UPDATE y DELETE sobre movimiento_stock en psql.
+### Los dos, rechazados por el disparador.
+###
+### El script está en test/solo_agregado.sql:
+###   psql -U <usuario> -h localhost -d libreria -f test/solo_agregado.sql
+###
+### Salida esperada (los dos primeros comandos fallan):
+###
+###   === 2. UPDATE sobre movimiento_stock -> debe ser RECHAZADO ===
+###   ERROR:  La tabla movimiento_stock es de sólo agregado: UPDATE no está permitido
+###
+###   === 3. DELETE sobre movimiento_stock -> debe ser RECHAZADO ===
+###   ERROR:  La tabla movimiento_stock es de sólo agregado: DELETE no está permitido

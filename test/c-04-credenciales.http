@@ -1,0 +1,40 @@
+### Caso C-04: correo existente con contraseña mala y correo inexistente.
+### Los dos responden 401 con el MISMO cuerpo y un tiempo parecido: el login
+### no revela qué cuentas existen (RN-08).
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Correo existente, contraseña mala -> 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "incorrecta"
+}
+
+### @name c04MalaClave
+###
+
+### Correo inexistente -> 401 con el mismo cuerpo
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "no_existe@example.com",
+  "password": "incorrecta"
+}
+
+### @name c04CorreoInexistente
+###
+
+### El mismo correo con la contraseña correcta -> 200
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}

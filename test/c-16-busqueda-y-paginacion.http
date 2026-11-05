@@ -1,0 +1,73 @@
+### Caso C-16: búsqueda con ' OR '1'='1 ; paginación con filtro; PATCH
+### parcial; PATCH del stock.
+### Lista vacía con total 0; con titulo=ficc&size=1, total 1 y pages 1, y
+### page=2 da 422; size=500, 422; sólo cambia lo enviado; el PATCH con stock,
+### 422.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del administrador
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### Búsqueda con ' OR '1'='1 -> 200 con lista vacía y total 0
+# @no-cookie-jar
+GET {{base}}/libros?titulo=%27%20OR%20%271%27%3D%271
+
+### @name c16Inyeccion
+###
+
+### Filtro con paginación: total 1 y pages 1
+# @no-cookie-jar
+GET {{base}}/libros?titulo=ficc&size=1
+
+### @name c16Filtro
+###
+
+### page=2 con un solo resultado -> 422
+# @no-cookie-jar
+GET {{base}}/libros?titulo=ficc&size=1&page=2
+
+### @name c16Pagina
+###
+
+### size=500 -> 422
+# @no-cookie-jar
+GET {{base}}/libros?size=500
+
+### @name c16Size
+###
+
+### PATCH parcial: sólo cambia el título -> 200
+# @no-cookie-jar
+PATCH {{base}}/libros/2
+Content-Type: application/json
+
+{
+  "titulo": "Antología (edición revisada)"
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c16Patch
+###
+
+### PATCH con stock -> 422 (el stock no se edita por PATCH)
+# @no-cookie-jar
+PATCH {{base}}/libros/2
+Content-Type: application/json
+
+{
+  "stock": 99
+}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c16PatchStock
+###

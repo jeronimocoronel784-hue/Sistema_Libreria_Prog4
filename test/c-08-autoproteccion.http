@@ -1,0 +1,49 @@
+### Caso C-08: autoprotección.
+### El administrador no se revoca su propio ADMIN -> 409. Y el sistema nunca
+### queda sin administradores vigentes.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del administrador (usuario id 1)
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### Login del segundo administrador (usuario id 2)
+# @name loginAdmin2
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin2@example.com",
+  "password": "Demo1234!"
+}
+
+### Revocarse a uno mismo el ADMIN -> 409
+# @no-cookie-jar
+DELETE {{base}}/usuarios/1/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c08Autoproteccion
+###
+
+### Revocar el ADMIN del otro mientras queda uno solo -> 409
+### (el sistema no puede quedar sin administradores vigentes)
+# @no-cookie-jar
+DELETE {{base}}/usuarios/2/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c08UltimoAdmin
+###
+
+### Revocar un rol que el usuario no tiene abierto -> 404
+# @no-cookie-jar
+DELETE {{base}}/usuarios/3/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}

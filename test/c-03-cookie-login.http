@@ -1,0 +1,41 @@
+### Caso C-03: la cookie del login.
+### Set-Cookie con HttpOnly, SameSite=Lax y Max-Age; el cuerpo NO trae el
+### token; sin cookie, o con Authorization: Bearer, la respuesta es 401.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login -> 200 y la cabecera Set-Cookie
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Demo1234!"
+}
+
+### @name c03Login
+###
+
+### Con la cookie -> 200 con el usuario y sus roles
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### @name c03Yo
+###
+
+### Sin cookie -> 401
+# @no-cookie-jar
+GET {{base}}/auth/yo
+
+### @name c03SinCookie
+###
+
+### Con Authorization: Bearer en lugar de la cookie -> 401
+### (el token viaja SÓLO en la cookie HttpOnly)
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Authorization: Bearer {{loginAdmin.response.headers.Set-Cookie}}

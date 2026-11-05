@@ -1,0 +1,72 @@
+### Caso C-05: seis intentos fallidos seguidos con el mismo correo.
+### Los cinco primeros -> 401. El sexto -> 429 con Retry-After, en pocos
+### milisegundos (no verifica la contraseña). Los cinco fallos quedan en
+### intento_acceso.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Intento 1 -> 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "c05@example.com",
+  "password": "mala1"
+}
+
+### Intento 2 -> 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "c05@example.com",
+  "password": "mala2"
+}
+
+### Intento 3 -> 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "c05@example.com",
+  "password": "mala3"
+}
+
+### Intento 4 -> 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "c05@example.com",
+  "password": "mala4"
+}
+
+### Intento 5 -> 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "c05@example.com",
+  "password": "mala5"
+}
+
+### @name c05Quinto
+###
+
+### Intento 6 -> 429 con Retry-After (no calcula ningún hash)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "c05@example.com",
+  "password": "otra"
+}
+
+### @name c05Sexto
+###
+
+### Los cinco fallos están en la tabla:
+###   SELECT count(*) FROM intento_acceso WHERE email = 'c05@example.com' AND exito = false;
+### -> 5

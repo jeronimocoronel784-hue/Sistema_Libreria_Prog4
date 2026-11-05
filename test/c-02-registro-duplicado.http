@@ -1,0 +1,59 @@
+### Caso C-02: registro; correo repetido de usuario y de cliente.
+### 201 al registrar; 409 con mensaje propio si el correo ya existe, y el
+### registro rechazado no deja ninguna fila suelta.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Registro nuevo -> 201
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "nuevo_cliente@example.com",
+  "nombre": "Cliente Nuevo",
+  "password": "Demo1234!"
+}
+
+### @name c02Registro
+###
+
+### El mismo correo otra vez -> 409 (el usuario ya existe)
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "nuevo_cliente@example.com",
+  "nombre": "Cliente Nuevo",
+  "password": "Demo1234!"
+}
+
+### @name c02Repetido
+###
+
+### Un correo que YA es de un cliente del mostrador -> 409
+### (el registro no se apropia de esa ficha)
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "lucia@example.com",
+  "nombre": "Impostor",
+  "password": "Demo1234!"
+}
+
+### @name c02ClienteExistente
+###
+
+### Un campo que el contrato no declara -> 422
+### (nadie se registra con un rol)
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "con_rol@example.com",
+  "nombre": "Con rol",
+  "password": "Demo1234!",
+  "rol": "ADMIN"
+}

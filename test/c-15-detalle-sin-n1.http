@@ -1,0 +1,73 @@
+### Caso C-15: el detalle de una venta con 2 y con 4 renglones.
+### La misma cantidad de consultas en la consola, en los dos casos.
+###
+### Para ver las consultas, arrancar el servidor con SQL_ECHO=true:
+###   SQL_ECHO=true uvicorn app.main:app --reload
+###
+### La evidencia (la captura) está en evidencia/c-15-consultas-detalle.md.
+###
+### Antes de cada archivo se corre:  python scripts/seed.py
+
+@base = http://localhost:8000
+
+### Login del vendedor
+# @name loginVendedor
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendedor@example.com",
+  "password": "Demo1234!"
+}
+
+### Venta con 2 renglones -> 201
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [
+    {"libro_id": 1, "cantidad": 1},
+    {"libro_id": 3, "cantidad": 1}
+  ]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c15Venta2
+###
+
+### Venta con 4 renglones -> 201
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [
+    {"libro_id": 1, "cantidad": 1},
+    {"libro_id": 2, "cantidad": 1},
+    {"libro_id": 3, "cantidad": 1},
+    {"libro_id": 4, "cantidad": 1}
+  ]
+}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c15Venta4
+###
+
+### El detalle de la venta de 2 renglones -> 200 (mismo número de consultas)
+# @no-cookie-jar
+GET {{base}}/ventas/{{c15Venta2.response.body.id}}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c15Detalle2
+###
+
+### El detalle de la venta de 4 renglones -> 200 (mismo número de consultas)
+# @no-cookie-jar
+GET {{base}}/ventas/{{c15Venta4.response.body.id}}
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### @name c15Detalle4
+###
