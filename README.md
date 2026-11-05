@@ -12,12 +12,17 @@ y roles, repositorios y Unit of Work, y la capa de despliegue en contenedor.
 
 ## Integrantes
 
-<!-- COMPLETAR: nombre y apellido de cada integrante del grupo -->
+- Corone Jeronimo
+- Godoy Joaqui
+- Gimenez Sabrina
+- Saleme Ismael
 
-1.
-2.
-3.
-4.
+## Guía manual
+
+`MANUAL.md` tiene el paso a paso, con los comandos exactos, para levantar el
+proyecto desde cero en una máquina limpia, armar la imagen de Docker y
+desplegarla en el VPS. Está pensado para que cualquiera del grupo lo pueda
+hacer sin ayuda.
 
 ## Requisitos
 

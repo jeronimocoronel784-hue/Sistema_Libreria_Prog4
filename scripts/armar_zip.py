@@ -49,6 +49,7 @@ CONTENIDO_PARCIAL = (
     "env.example",
     "requirements.txt",
     "README.md",
+    "MANUAL.md",
     ".gitignore",
 )
 
