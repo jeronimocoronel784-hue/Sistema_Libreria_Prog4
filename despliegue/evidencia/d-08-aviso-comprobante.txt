@@ -1,0 +1,8 @@
+=== POST /ventas/ -> 201 ===
+{"id":2,"fecha":"2026-11-05T13:52:33.980491Z","total":"27000.00","cliente":{"id":1,"nombre":"Ana López","email":"ana@example.com"},"renglones":[{"libro_id":2,"titulo":"Respiración artificial","cantidad":1,"precio_unitario":"27000.00","subtotal":"27000.00"}]}
+
+=== docker logs libreria | grep Comprobante ===
+INFO:     Comprobante de la venta 2 enviado a ana@example.com
+
+=== la línea de la respuesta, en el registro ===
+INFO:     172.17.0.1:40166 - "POST /ventas/ HTTP/1.1" 201 Created

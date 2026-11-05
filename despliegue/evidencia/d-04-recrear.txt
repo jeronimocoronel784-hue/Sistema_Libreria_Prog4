@@ -1,0 +1,22 @@
+=== docker rm -f libreria ===
+=== docker run (el mismo) ===
+f5d4c726b80b1aa3400ed07f00e0f8f148b99128884e035b3299f255e114af5d
+
+=== healthy: True ===
+=== docker ps ===
+CONTAINER ID   IMAGE      COMMAND                  CREATED          STATUS                    PORTS                                         NAMES
+f5d4c726b80b   libreria   "sh -c 'alembic upgr…"   11 seconds ago   Up 10 seconds (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   libreria
+
+=== docker logs libreria ===
+INFO:     127.0.0.1:43942 - "GET /health/ready HTTP/1.1" 200 OK
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+
+=== las migraciones NO se repiten: 0 upgrades en el registro (la base ya estaba en la última revisión) ===
+(ninguno: correcto)
+=== GET /libros -> 200 (los datos siguen) ===
+[{"id":1,"isbn":"978-950-00-0001-1","titulo":"Rayuela","precio":"25000.00","stock":10,"editorial_id":1,"genero_id":1,"editorial":{"id":1,"nombre":"Sudamericana","pais":"Argentina"},"genero":{"id":1,"nombre":"Novela"}},{"id":2,"isbn":"978-950-00-0002-8","titulo":"Respiración artificial","precio":"27000.00","stock":5,"editorial_id":1,"genero_id":1,"editorial":{"id":1,"nombre":"Sudamericana","pais":"Argentina"},"genero":{"id":1,"nombre":"Novela"}},{"id":3,"isbn":"978-950-00-0003-5","titulo":"Los que aman, odian","precio":"21000.00","stock":4,"editorial_id":1,"genero_id":1,"editorial":{"id":1,"nombre":"Sudamericana","pais":"Argentina"},"genero":{"id":1,"nombre":"Novela"}},{"id":4,"isbn":"978-950-00-0004-2","titulo":"Ensayos sobre la lectura","precio":"15000.00","stock":7,"editorial_id":2,"genero_id":2,"editorial":{"id":2,"nombre":"Anagrama","pais":"España"},"genero":{"id":2,"nombre":"Ensayo"}}]

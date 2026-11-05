@@ -1,10 +1,21 @@
 # DEPLOY — TP de los capítulos 1 a 4
 
-Este documento es el que pide la consigna del parcial (Ejercicio 10). Todo lo
-que está marcado como **PENDIENTE** se completa cuando el grupo haga el
-despliegue en el VPS.
+Este documento es el que pide la consigna del parcial (Ejercicio 10).
 
-## 1. Datos del despliegue
+## 1. Qué se verificó y qué falta
+
+| Parte | Estado |
+|-------|--------|
+| La imagen de Docker se construye y el contenedor queda `healthy` | **Verificado en local** (Docker 29.9.2, Docker Desktop 4.98.0) |
+| Los casos D-01 a D-08 | **Verificados en local**: la salida de cada uno está en `evidencia/` |
+| El despliegue en el VPS con la URL pública | **PENDIENTE**: falta el acceso al servidor |
+
+La consigna pide que los casos D se demuestren **sobre el TP de los capítulos 1
+a 4 desplegado en el VPS**: cuando estén los datos del servidor, hay que
+volver a correr `python scripts/capturar_d.py` **desde el servidor** para que
+`evidencia/` tenga la salida definitiva.
+
+## 2. Datos del despliegue
 
 | Dato | Valor |
 |------|-------|
@@ -16,7 +27,16 @@ despliegue en el VPS.
 | Archivo de variables | `libreria.env` (vive en el servidor, fuera del repositorio y de la imagen) |
 | Puerto publicado en el host | **PENDIENTE** |
 
-## 2. Comandos completos
+### Lo que sí se sabe de la imagen
+
+| Medición | Valor |
+|----------|-------|
+| Imagen base | `python:3.12-alpine` |
+| Tamaño de la imagen base | **74,7 MB** (por debajo de los 100 MB) |
+| Tamaño de la imagen del proyecto | 219 MB (con las dependencias instaladas) |
+| Usuario del proceso | `app` (uid 100): **no es root** |
+
+## 3. Comandos completos
 
 Construir la imagen (en el servidor):
 
@@ -46,7 +66,13 @@ Cargar los datos iniciales (la base es la del servidor, no la del contenedor):
 docker exec libreria python scripts/seed.py
 ```
 
-## 3. Cambios que se le hicieron al TP para que corra en el contenedor
+Generar la evidencia de los casos D:
+
+```bash
+python scripts/capturar_d.py
+```
+
+## 4. Cambios que se le hicieron al TP para que corra en el contenedor
 
 La consigna permite corregir defectos propios del TP y anotarlos acá.
 
@@ -58,7 +84,7 @@ La consigna permite corregir defectos propios del TP y anotarlos acá.
 proyecto fueron `Dockerfile`, `.dockerignore`, este `env.example` y este
 `DEPLOY.md`.
 
-## 4. HEALTHCHECK y `localhost`
+## 5. HEALTHCHECK y `localhost`
 
 Dentro de una imagen Alpine no hay `curl`; viene `wget`. Y `localhost` resuelve
 primero a `::1` (IPv6) mientras uvicorn escucha sólo en IPv4 (`--host 0.0.0.0`):
@@ -72,14 +98,14 @@ Para comprobarlo a mano:
 docker exec libreria wget -qO- http://127.0.0.1:8000/health/live
 ```
 
-## 5. La base no está en localhost
+## 6. La base no está en localhost
 
 Dentro de un contenedor, `localhost` es el propio contenedor. Si la base corre
 directamente en el servidor, el `DATABASE_URL` del archivo de variables apunta
 a `host.docker.internal` (no a `localhost`). Con `localhost` la conexión falla
 con "Connection refused" aunque PostgreSQL esté funcionando.
 
-## 6. Cómo se actualiza la aplicación
+## 7. Cómo se actualiza la aplicación
 
 Los datos no se pierden: viven en la base del servidor, no en el contenedor.
 
@@ -100,19 +126,21 @@ docker logs libreria
 ```
 
 El contenedor aplica `alembic upgrade head` al arrancar, así que las
-migraciones nuevas se aplican solas: no hay que correrlas a mano.
+migraciones nuevas se aplican solas: no hay que correrlas a mano. Y como la
+base ya quedó en la última revisión, **no se repiten** (se ve en el registro
+del caso D-04).
 
-## 7. Evidencia
+## 8. Evidencia
 
 En `evidencia/` está la salida de cada caso D:
 
 | Caso | Archivo | Qué demuestra |
 |------|---------|---------------|
-| D-01 | `evidencia/d-01-imagenes.txt` | La imagen base y `python:3.12-alpine` por debajo de 100 MB, y el `Dockerfile` parte de ella |
-| D-02 | `evidencia/d-02-build-run.txt` | Build y run en un servidor limpio; contenedor `healthy`; migraciones aplicadas en el log |
-| D-03 | `evidencia/d-03-desde-afuera.txt` | Desde afuera del VPS: `/health/ready`, `/libros` y `POST /ventas/` |
-| D-04 | `evidencia/d-04-recrear.txt` | `docker rm -f` y el mismo `docker run`: vuelve a estar healthy, los datos siguen, las migraciones no se repiten |
+| D-01 | `evidencia/d-01-imagenes.txt` | La imagen base y `python:3.12-alpine` por debajo de los 100 MB, y el `Dockerfile` parte de ella |
+| D-02 | `evidencia/d-02-build-run.txt` | Build y run en un servidor limpio; contenedor `healthy`; migraciones del TP aplicadas al arrancar |
+| D-03 | `evidencia/d-03-desde-afuera.txt` | Desde afuera: `/health/ready`, `/libros` y `POST /ventas/` |
+| D-04 | `evidencia/d-04-recrear.txt` | `docker rm -f` y el mismo `docker run`: vuelve a estar healthy, los datos siguen y las migraciones no se repiten |
 | D-05 | `evidencia/d-05-sin-database-url.txt` | Correr la imagen sin `DATABASE_URL`: el contenedor no queda sirviendo |
 | D-06 | `evidencia/d-06-contenido-imagen.txt` | La imagen no tiene `.env` ni `DATABASE_URL` |
 | D-07 | `evidencia/d-07-usuario.txt` | `docker exec libreria id` no es root |
-| D-08 | `evidencia/d-08-aviso-comprobante.txt` | El aviso del comprobante aparece en `docker logs` después de la respuesta |
+| D-08 | `evidencia/d-08-aviso-comprobante.txt` | El aviso del comprobante aparece en `docker logs` después de la línea de la respuesta |

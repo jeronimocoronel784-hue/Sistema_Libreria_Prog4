@@ -1,0 +1,77 @@
+=== docker build ===
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.29kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 457B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [1/9] FROM docker.io/library/python:3.12-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+#5 resolve docker.io/library/python:3.12-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8 0.0s done
+#5 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 5.93kB 0.0s done
+#4 DONE 0.0s
+
+#6 [4/9] RUN pip install --no-cache-dir -r requirements.txt
+#6 CACHED
+
+#7 [6/9] COPY migrations ./migrations
+#7 CACHED
+
+#8 [7/9] COPY scripts ./scripts
+#8 CACHED
+
+#9 [8/9] COPY alembic.ini ./
+#9 CACHED
+
+#10 [2/9] WORKDIR /app
+#10 CACHED
+
+#11 [3/9] COPY requirements.txt ./
+#11 CACHED
+
+#12 [5/9] COPY app ./app
+#12 CACHED
+
+#13 [9/9] RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+#13 CACHED
+
+#14 exporting to image
+#14 exporting layers done
+#14 exporting manifest sha256:303ac4bb48bfea31abb23dcf272ae6b2e482a3a383b71d89bba00e264a2a617d done
+#14 exporting config sha256:e3d581b9284255e32fc30516f28a88d862d1682c51175efab5b96f1f3bd2efe8 done
+#14 exporting attestation manifest sha256:48956b94751fa9adc1f1b2001f12013f45f3ffabd6c6b7fb026e3e050f06f6a6 0.0s done
+#14 exporting manifest list sha256:3ca07600b2acfc3a92662495dd9255038c04a08e4a7f7f8b7c055f14603ef459
+#14 exporting manifest list sha256:3ca07600b2acfc3a92662495dd9255038c04a08e4a7f7f8b7c055f14603ef459 0.0s done
+#14 naming to docker.io/library/libreria:latest done
+#14 unpacking to docker.io/library/libreria:latest
+#14 unpacking to docker.io/library/libreria:latest 2.7s done
+#14 DONE 2.9s
+
+=== docker run ===
+930d29a47512357a958c722ee83532edf26f5ed0e9d81ea959035fc15a23b9bc
+
+=== healthy: True ===
+=== docker ps ===
+CONTAINER ID   IMAGE      COMMAND                  CREATED          STATUS                    PORTS                                         NAMES
+930d29a47512   libreria   "sh -c 'alembic upgr…"   12 seconds ago   Up 10 seconds (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   libreria
+
+=== docker logs libreria ===
+INFO:     127.0.0.1:52836 - "GET /health/ready HTTP/1.1" 200 OK
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)

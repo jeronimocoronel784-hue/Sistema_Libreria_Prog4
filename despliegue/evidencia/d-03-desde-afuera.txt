@@ -1,0 +1,8 @@
+=== GET /health/ready -> 200 ===
+{"estado":"lista"}
+
+=== GET /libros -> 200 ===
+[{"id":1,"isbn":"978-950-00-0001-1","titulo":"Rayuela","precio":"25000.00","stock":10,"editorial_id":1,"genero_id":1,"editorial":{"id":1,"nombre":"Sudamericana","pais":"Argentina"},"genero":{"id":1,"nombre":"Novela"}},{"id":2,"isbn":"978-950-00-0002-8","titulo":"Respiración artificial","precio":"27000.00","stock":5,"editorial_id":1,"genero_id":1,"editorial":{"id":1,"nombre":"Sudamericana","pais":"Argentina"},"genero":{"id":1,"nombre":"Novela"}},{"id":3,"isbn":"978-950-00-0003-5","titulo":"Los que aman, odian","precio":"21000.00","stock":4,"editorial_id":1,"genero_id":1,"editorial":{"id":1,"nombre":"Sudamericana","pais":"Argentina"},"genero":{"id":1,"nombre":"Novela"}},{"id":4,"isbn":"978-950-00-0004-2","titulo":"Ensayos sobre la lectura","precio":"15000.00","stock":7,"editorial_id":2,"genero_id":2,"editorial":{"id":2,"nombre":"Anagrama","pais":"España"},"genero":{"id":2,"nombre":"Ensayo"}}]
+
+=== POST /ventas/ -> 201 ===
+{"id":1,"fecha":"2026-11-05T13:52:17.789209Z","total":"52000.00","cliente":{"id":1,"nombre":"Ana López","email":"ana@example.com"},"renglones":[{"libro_id":1,"titulo":"Rayuela","cantidad":1,"precio_unitario":"25000.00","subtotal":"25000.00"},{"libro_id":2,"titulo":"Respiración artificial","cantidad":1,"precio_unitario":"27000.00","subtotal":"27000.00"}]}

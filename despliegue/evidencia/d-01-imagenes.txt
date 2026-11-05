@@ -1,0 +1,4 @@
+=== docker images ===
+IMAGE                ID             DISK USAGE   CONTENT SIZE   EXTRA
+libreria:latest      52210bf0a496        219MB         51.2MB   U    
+python:3.12-alpine   e6dae589c1c0       74.7MB         18.7MB        

@@ -143,6 +143,10 @@ def main() -> None:
     )
     _escribir("d-02-build-run.txt", salida)
 
+    # Los datos iniciales se cargan desde adentro del contenedor.
+    seed = _docker("exec", CONTENEDOR, "python", "scripts/seed.py")
+    print(f"  seed: {_texto(seed).strip()[:120]}")
+
     print("== D-03: desde afuera ==")
     codigo_ready, cuerpo_ready = _pedir("/health/ready")
     codigo_libros, cuerpo_libros = _pedir("/libros")
@@ -183,6 +187,10 @@ def main() -> None:
     logs2 = _docker("logs", CONTENEDOR)
     estado2 = _docker("ps")
     codigo2, cuerpo2 = _pedir("/libros")
+    texto_logs2 = _texto(logs2)
+    repeticiones = [
+        linea for linea in texto_logs2.splitlines() if "Running upgrade" in linea
+    ]
     salida = (
         "=== docker rm -f libreria ===\n"
         + "=== docker run (el mismo) ===\n"
@@ -190,18 +198,24 @@ def main() -> None:
         + f"\n=== healthy: {sano2} ===\n"
         + "=== docker ps ===\n"
         + _texto(estado2)
-        + "\n=== docker logs libreria (las migraciones no se repiten) ===\n"
-        + _texto(logs2)
+        + "\n=== docker logs libreria ===\n"
+        + texto_logs2
+        + f"\n=== las migraciones NO se repiten: {len(repeticiones)} upgrades "
+        "en el registro (la base ya estaba en la última revisión) ===\n"
+        + ("\n".join(repeticiones) if repeticiones else "(ninguno: correcto)")
         + f"\n=== GET /libros -> {codigo2} (los datos siguen) ===\n{codigo2 and cuerpo2}\n"
     )
     _escribir("d-04-recrear.txt", salida)
 
     print("== D-05: correr la imagen sin DATABASE_URL ==")
-    sin_env = _docker(
-        "run", "--rm", "--env-file", os.devnull, "-e", "PATH=/usr/local/bin", IMAGEN
-    )
+    # Un archivo de variables vacío: la imagen arranca sin DATABASE_URL.
+    vacio = os.path.join(DESPLIEGUE, ".env-vacio.tmp")
+    with open(vacio, "w", encoding="utf-8"):
+        pass
+    sin_env = _docker("run", "--rm", "--env-file", vacio, IMAGEN)
+    os.remove(vacio)
     salida = (
-        "=== docker run --rm --env-file /dev/null libreria ===\n"
+        "=== docker run --rm --env-file <archivo vacío> libreria ===\n"
         + _texto(sin_env)
         + "\nEl contenedor tiene que terminar con error: sin base no hay "
         "aplicación que atienda.\n"
@@ -225,13 +239,29 @@ def main() -> None:
     _escribir("d-07-usuario.txt", salida)
 
     print("== D-08: el aviso del comprobante en el log ==")
+    # La venta tiene que ser de ESTE contenedor: el aviso se agenda en segundo
+    # plano y aparece en el registro después de la línea de la respuesta.
+    codigo_aviso, cuerpo_aviso = _pedir(
+        "/ventas/",
+        "POST",
+        {
+            "cliente_id": 1,
+            "renglones": [{"libro_id": 2, "cantidad": 1}],
+        },
+    )
+    time.sleep(3)
     logs3 = _docker("logs", CONTENEDOR)
-    lineas_aviso = [
-        linea for linea in _texto(logs3).splitlines() if "Comprobante" in linea
+    texto_logs = _texto(logs3)
+    lineas_aviso = [linea for linea in texto_logs.splitlines() if "Comprobante" in linea]
+    lineas_respuesta = [
+        linea for linea in texto_logs.splitlines() if "POST /ventas/" in linea
     ]
     salida = (
-        "=== docker logs libreria | grep Comprobante ===\n"
+        f"=== POST /ventas/ -> {codigo_aviso} ===\n{codigo_aviso and cuerpo_aviso}\n\n"
+        + "=== docker logs libreria | grep Comprobante ===\n"
         + ("\n".join(lineas_aviso) if lineas_aviso else "(no hay líneas con Comprobante)")
+        + "\n\n=== la línea de la respuesta, en el registro ===\n"
+        + ("\n".join(lineas_respuesta) if lineas_respuesta else "(no se encontró)")
         + "\n"
     )
     _escribir("d-08-aviso-comprobante.txt", salida)

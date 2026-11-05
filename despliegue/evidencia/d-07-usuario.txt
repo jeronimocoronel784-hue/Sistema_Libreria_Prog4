@@ -1,0 +1,2 @@
+=== docker exec libreria id ===
+uid=100(app) gid=101(app) groups=101(app)
