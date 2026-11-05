@@ -1,0 +1,20 @@
+# C-05: venta con libro o cliente inexistente.
+# Esperado: 409.
+
+### Venta con cliente inexistente -> 409
+POST http://localhost:8000/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 9999,
+  "renglones": [{ "libro_id": 1, "cantidad": 1 }]
+}
+
+### Venta con libro inexistente -> 409
+POST http://localhost:8000/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 2,
+  "renglones": [{ "libro_id": 9999, "cantidad": 1 }]
+}

@@ -1,0 +1,38 @@
+# Carga inicial (deja la base en estado conocido).
+# Requiere haber corrido: alembic upgrade head
+# Alternativa por comando: python scripts/seed.py
+
+### Editorial base
+POST http://localhost:8000/editoriales/
+Content-Type: application/json
+
+{
+  "nombre": "Sudamericana",
+  "pais": "Argentina"
+}
+
+### Género base
+POST http://localhost:8000/generos/
+Content-Type: application/json
+
+{
+  "nombre": "Novela"
+}
+
+### Autores base
+POST http://localhost:8000/autores/
+Content-Type: application/json
+
+{
+  "nombre": "Julio Cortázar",
+  "nacionalidad": "Argentina"
+}
+
+### Cliente base
+POST http://localhost:8000/clientes/
+Content-Type: application/json
+
+{
+  "nombre": "Tomás Ríos",
+  "email": "tomas@example.com"
+}

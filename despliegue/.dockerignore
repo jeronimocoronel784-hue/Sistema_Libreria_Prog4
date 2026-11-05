@@ -1,0 +1,28 @@
+# Secretos: nunca dentro de la imagen.
+.env
+.env.*
+*.env
+
+# Entorno virtual: se reconstruye con requirements.txt.
+.venv
+venv
+
+# Historial de git: no viaja en la imagen (y el zip tampoco lo lleva).
+.git
+.gitignore
+
+# Bytecode de Python.
+__pycache__/
+*.pyc
+*.pyo
+.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Documentación y pruebas: la imagen sólo lleva lo que corre.
+docs/
+test/
+evidencia/
+README.md
+DEPLOY.md

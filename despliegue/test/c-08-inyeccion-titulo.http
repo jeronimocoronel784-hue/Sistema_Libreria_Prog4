@@ -1,0 +1,11 @@
+# C-08: búsqueda por título con texto inyector.
+# Esperado: 200 con lista vacía (parámetro ligado, nunca SQL concatenado).
+
+### Búsqueda con intento de inyección -> 200 []
+GET http://localhost:8000/libros/?titulo=' OR '1'='1
+
+### Búsqueda normal (insensible a mayúsculas) -> 200 con resultados
+GET http://localhost:8000/libros/?titulo=rayuela
+
+### Paginación inválida -> 422
+GET http://localhost:8000/libros/?limit=200&offset=-1

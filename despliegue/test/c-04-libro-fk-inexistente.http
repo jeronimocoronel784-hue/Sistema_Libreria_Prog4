@@ -1,0 +1,30 @@
+# C-04: libro con editorial o autor inexistente.
+# Esperado: 409 con mensaje propio (la base rechaza la FK, sin `if` previos).
+
+### Libro con editorial inexistente -> 409
+POST http://localhost:8000/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0088-2",
+  "titulo": "Libro sin editorial",
+  "precio": "12000.00",
+  "stock": 2,
+  "editorial_id": 9999,
+  "genero_id": 1,
+  "autores": [{ "autor_id": 1, "rol": "autor", "orden": 1 }]
+}
+
+### Libro con autor inexistente -> 409
+POST http://localhost:8000/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0087-5",
+  "titulo": "Libro sin autor",
+  "precio": "12000.00",
+  "stock": 2,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [{ "autor_id": 9999, "rol": "autor", "orden": 1 }]
+}

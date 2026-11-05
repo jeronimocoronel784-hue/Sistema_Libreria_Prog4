@@ -10,7 +10,9 @@ from app.core.database import get_session
 from app.modules.ventas import service
 from app.modules.ventas.schemas import VentaCreate, VentaEnLista, VentaRead
 
-logger = logging.getLogger("libreria.ventas")
+# El registro de uvicorn: con un logger propio sin configurar, el aviso NO
+# aparecería ni en la consola ni en `docker logs` (requisito del parcial).
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
 

@@ -1,0 +1,19 @@
+# C-07: detalle de un libro y de una venta con carga anticipada.
+# Esperado: cantidad FIJA de consultas en consola (SQL_ECHO=true), la misma
+# con uno o con varios autores/renglones (sin N+1).
+#
+# Para verlo: en .env poner SQL_ECHO=true y reiniciar con
+#   uvicorn app.main:app --reload
+# El detalle del libro emite: 1 SELECT del libro (join editorial/género)
+# + 1 SELECT de autorías con autores. El detalle de la venta emite:
+# 1 SELECT de la venta (join cliente) + 1 SELECT de renglones con libros.
+# Ver docs/evidencia-c07.md con un fragmento real de consola.
+
+### Detalle del libro 3 (dos coautores) -> 200
+GET http://localhost:8000/libros/3
+
+### Detalle del libro 1 (un autor) -> 200, misma cantidad de consultas
+GET http://localhost:8000/libros/1
+
+### Detalle de la venta -> 200, cantidad fija de consultas
+GET http://localhost:8000/ventas/1
