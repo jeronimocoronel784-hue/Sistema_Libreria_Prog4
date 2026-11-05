@@ -77,6 +77,20 @@ with TestClient(create_app()) as client:
 
         return asyncio.run_coroutine_threadsafe(_run(), loop_app[0]).result()
 
+    def con_cookie(cookie: str) -> None:
+        """Deja en el jar de cookies la sesión que se quiere usar.
+
+        httpx manda **siempre** las cookies del jar y descarta la cabecera
+        ``Cookie`` del pedido: para probar dos sesiones a la vez hay que
+        cambiar el jar antes de cada pedido.
+        """
+        client.cookies.clear()
+        if cookie:
+            token = cookie.split("=", 1)[1]
+            # Sin dominio: el jar lo guarda como cookie de host y lo manda.
+            # Fijando el dominio a mano, el jar no lo envía.
+            client.cookies.set("access_token", token, path="/")
+
     # Una consulta cualquiera para que el listener capture el loop.
     client.get("/health/ready")
 
@@ -163,6 +177,7 @@ with TestClient(create_app()) as client:
     )
     admin_cookie = cookie.split(";")[0]
 
+    con_cookie(admin_cookie)
     r = client.get("/auth/yo", headers={"Cookie": admin_cookie})
     check(
         "C-03 /auth/yo con cookie -> 200",
@@ -189,6 +204,7 @@ with TestClient(create_app()) as client:
     )
 
     # C-01 con la sesión iniciada: el parámetro de ruta no entero es 422.
+    con_cookie(admin_cookie)
     r = client.get("/ventas/no-es-un-id", headers={"Cookie": admin_cookie})
     check(
         "C-01 venta no entera con sesión -> 422",
@@ -270,7 +286,21 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # C-06: 401 sin sesión, 403 sin rol, y lo propio
     # =====================================================================
-    r = client.post("/libros/", json={"isbn": "1", "titulo": "x", "precio": "1.00"})
+    # Sin sesión, ruta protegida -> 401. El jar se vacía para que no quede
+    # ninguna cookie de los logins anteriores.
+    client.cookies.clear()
+    r = client.post(
+        "/libros/",
+        json={
+            "isbn": "978-950-00-9999-9",
+            "titulo": "No permitido",
+            "precio": "100.00",
+            "stock_inicial": 1,
+            "editorial_id": 1,
+            "genero_id": 1,
+            "autores": [],
+        },
+    )
     check("C-06 sin sesión -> 401", r.status_code == 401, str(r.status_code))
 
     r = client.post(
@@ -280,6 +310,7 @@ with TestClient(create_app()) as client:
     vendedor_cookie = r.headers.get("set-cookie", "").split(";")[0]
     check("login vendedor -> 200", r.status_code == 200, str(r.status_code))
 
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/libros/",
         json={
@@ -302,13 +333,53 @@ with TestClient(create_app()) as client:
     ana_cookie = r.headers.get("set-cookie", "").split(";")[0]
     check("login cliente -> 200", r.status_code == 200, str(r.status_code))
 
+    con_cookie(ana_cookie)
     r = client.get("/mis-ventas", headers={"Cookie": ana_cookie})
     check("C-06 /mis-ventas -> 200", r.status_code == 200, str(r.status_code))
+    con_cookie(ana_cookie)
     r = client.get("/ventas/1", headers={"Cookie": ana_cookie})
     check(
         "C-06 la cliente ve la venta ajena -> 403",
         r.status_code == 403,
         str(r.status_code),
+    )
+
+    # La cliente ve SUS ventas (RN-14): el comprobación de dueño.
+    con_cookie(vendedor_cookie)
+    r = client.post(
+        "/ventas/",
+        json={
+            "cliente_id": 3,
+            "renglones": [{"libro_id": 2, "cantidad": 1}],
+        },
+        headers={"Cookie": vendedor_cookie},
+    )
+    check(
+        "C-06 venta del cliente de la sesión -> 201",
+        r.status_code == 201,
+        f"{r.status_code} {r.text[:120]}",
+    )
+    venta_de_ana = r.json()["id"]
+    con_cookie(ana_cookie)
+    r = client.get(f"/ventas/{venta_de_ana}", headers={"Cookie": ana_cookie})
+    check(
+        "C-06 la cliente ve su propia venta -> 200",
+        r.status_code == 200,
+        str(r.status_code),
+    )
+    con_cookie(ana_cookie)
+    r = client.get("/mis-ventas", headers={"Cookie": ana_cookie})
+    check(
+        "C-06 /mis-ventas muestra la venta propia",
+        r.status_code == 200 and r.json()["total"] == 1,
+        r.text[:160],
+    )
+    con_cookie(vendedor_cookie)
+    r = client.get("/mis-ventas", headers={"Cookie": vendedor_cookie})
+    check(
+        "el personal no tiene ficha de cliente: su lista está vacía",
+        r.status_code == 200 and r.json()["total"] == 0,
+        r.text[:160],
     )
 
     # =====================================================================
@@ -320,30 +391,35 @@ with TestClient(create_app()) as client:
     )
     nuevo_cookie = r.headers.get("set-cookie", "").split(";")[0]
     check("C-09 login con clave provisoria -> 200", r.status_code == 200, str(r.status_code))
+    con_cookie(nuevo_cookie)
     r = client.get("/ventas/", headers={"Cookie": nuevo_cookie})
     check(
         "C-09 ruta protegida con cambio pendiente -> 403",
         r.status_code == 403,
         str(r.status_code),
     )
+    con_cookie(nuevo_cookie)
     r = client.get("/auth/yo", headers={"Cookie": nuevo_cookie})
     check(
         "C-09 /auth/yo no exige el cambio",
         r.status_code == 200,
         str(r.status_code),
     )
+    con_cookie(nuevo_cookie)
     r = client.post(
         "/auth/cambiar-password",
         json={"password_actual": "Temporal1234!", "password_nueva": "NuevaClave123!"},
         headers={"Cookie": nuevo_cookie},
     )
     check("C-09 cambio de contraseña -> 200", r.status_code == 200, f"{r.status_code} {r.text[:120]}")
+    con_cookie(nuevo_cookie)
     r = client.get("/ventas/", headers={"Cookie": nuevo_cookie})
     check(
         "C-09 la misma cookie sirve después del cambio",
         r.status_code == 200,
         str(r.status_code),
     )
+    con_cookie(nuevo_cookie)
     r = client.get("/auth/yo", headers={"Cookie": nuevo_cookie})
     check(
         "C-09 debe_cambiar_password queda en falso",
@@ -354,6 +430,7 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # C-07: revocar un rol con la sesión abierta
     # =====================================================================
+    con_cookie(admin_cookie)
     r = client.post(
         "/usuarios/4/roles",
         json={"rol": "VENDEDOR"},
@@ -364,24 +441,28 @@ with TestClient(create_app()) as client:
         r.status_code == 201,
         f"{r.status_code} {r.text[:120]}",
     )
+    con_cookie(ana_cookie)
     r = client.get("/ventas/", headers={"Cookie": ana_cookie})
     check(
         "C-07 con el rol asignado puede entrar",
         r.status_code == 200,
         str(r.status_code),
     )
+    con_cookie(admin_cookie)
     r = client.delete("/usuarios/4/roles/VENDEDOR", headers={"Cookie": admin_cookie})
     check(
         "C-07 revocar el rol -> 200",
         r.status_code == 200,
         f"{r.status_code} {r.text[:120]}",
     )
+    con_cookie(ana_cookie)
     r = client.get("/ventas/", headers={"Cookie": ana_cookie})
     check(
         "C-07 la misma cookie recibe 403 en la petición siguiente",
         r.status_code == 403,
         str(r.status_code),
     )
+    con_cookie(admin_cookie)
     r = client.get("/usuarios/4/roles", headers={"Cookie": admin_cookie})
     check(
         "C-07 la fila revocada sigue en el historial",
@@ -391,12 +472,27 @@ with TestClient(create_app()) as client:
         ),
         str(r.text[:200]),
     )
+
+    # RN-03: a lo sumo una asignación abierta por rol -> 409 (índice parcial).
+    con_cookie(admin_cookie)
+    r = client.post(
+        "/usuarios/4/roles",
+        json={"rol": "CLIENTE"},
+        headers={"Cookie": admin_cookie},
+    )
+    check(
+        "RN-03 rol ya abierto -> 409",
+        r.status_code == 409,
+        f"{r.status_code} {r.text[:120]}",
+    )
+    con_cookie(admin_cookie)
     r = client.post(
         "/usuarios/4/roles",
         json={"rol": "VENDEDOR", "vence_en": "2020-01-01T00:00:00+00:00"},
         headers={"Cookie": admin_cookie},
     )
     check("C-07 vencimiento en el pasado -> 422", r.status_code == 422, str(r.status_code))
+    con_cookie(admin_cookie)
     r = client.post(
         "/usuarios/4/roles",
         json={"rol": "VENDEDOR", "vence_en": "2030-01-01T00:00:00"},
@@ -407,6 +503,7 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # C-08: autoprotección
     # =====================================================================
+    con_cookie(admin_cookie)
     r = client.delete("/usuarios/1/roles/ADMIN", headers={"Cookie": admin_cookie})
     check("C-08 revocarse el propio ADMIN -> 409", r.status_code == 409, str(r.status_code))
 
@@ -425,6 +522,7 @@ with TestClient(create_app()) as client:
     logger_uvicorn.addHandler(capturador)
     avisos.clear()
 
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/ventas/",
         json={
@@ -471,6 +569,7 @@ with TestClient(create_app()) as client:
     # =====================================================================
     movimientos_antes = ejecutar_sql("SELECT count(*) FROM movimiento_stock")[0][0]
     ventas_antes = ejecutar_sql("SELECT count(*) FROM venta")[0][0]
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/ventas/",
         json={
@@ -499,12 +598,14 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # C-12: cliente inexistente, libro inexistente y libro dado de baja
     # =====================================================================
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/ventas/",
         json={"cliente_id": 999, "renglones": [{"libro_id": 1, "cantidad": 1}]},
         headers={"Cookie": vendedor_cookie},
     )
     check("C-12 cliente inexistente -> 409", r.status_code == 409, str(r.status_code))
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/ventas/",
         json={"cliente_id": 2, "renglones": [{"libro_id": 999, "cantidad": 1}]},
@@ -515,6 +616,7 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # C-13: reponer, dar de baja, volver a cargar el mismo ISBN
     # =====================================================================
+    con_cookie(admin_cookie)
     r = client.post(
         "/libros/5/reponer",
         json={"cantidad": 10},
@@ -529,10 +631,12 @@ with TestClient(create_app()) as client:
         == 1,
         "movimiento de reposición",
     )
+    con_cookie(admin_cookie)
     r = client.delete("/libros/5", headers={"Cookie": admin_cookie})
     check("C-13 baja -> 204", r.status_code == 204, str(r.status_code))
     r = client.get("/libros/5")
     check("C-13 el libro desaparece del catálogo", r.status_code == 404, str(r.status_code))
+    con_cookie(admin_cookie)
     r = client.post(
         "/libros/",
         json={
@@ -547,6 +651,7 @@ with TestClient(create_app()) as client:
         headers={"Cookie": admin_cookie},
     )
     check("C-13 el mismo ISBN se puede volver a cargar -> 201", r.status_code == 201, str(r.status_code))
+    con_cookie(admin_cookie)
     r = client.post(
         "/libros/",
         json={
@@ -561,6 +666,7 @@ with TestClient(create_app()) as client:
         headers={"Cookie": admin_cookie},
     )
     check("C-13 un segundo vigente con el mismo ISBN -> 409", r.status_code == 409, str(r.status_code))
+    con_cookie(admin_cookie)
     r = client.get("/ventas/1", headers={"Cookie": admin_cookie})
     check(
         "C-13 la venta vieja sigue mostrando el libro",
@@ -576,6 +682,7 @@ with TestClient(create_app()) as client:
         client.get(f"/ventas/{venta_id}", headers={"Cookie": admin_cookie})
         return len([q for q in consultas if q.strip().upper().startswith("SELECT")])
 
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/ventas/",
         json={
@@ -588,6 +695,7 @@ with TestClient(create_app()) as client:
         headers={"Cookie": vendedor_cookie},
     )
     venta_2 = r.json()["id"]
+    con_cookie(vendedor_cookie)
     r = client.post(
         "/ventas/",
         json={
@@ -613,6 +721,7 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # PATCH parcial y PATCH del stock
     # =====================================================================
+    con_cookie(admin_cookie)
     r = client.patch(
         "/libros/2", json={"titulo": "Antología (edición revisada)"},
         headers={"Cookie": admin_cookie},
@@ -624,6 +733,7 @@ with TestClient(create_app()) as client:
         and r.json()["precio"] == "30000.00",
         r.text[:160],
     )
+    con_cookie(admin_cookie)
     r = client.patch(
         "/libros/2", json={"stock": 99}, headers={"Cookie": admin_cookie}
     )
@@ -632,6 +742,7 @@ with TestClient(create_app()) as client:
     # =====================================================================
     # RN-15: ningún error devuelve texto interno de la base
     # =====================================================================
+    con_cookie(admin_cookie)
     r = client.post(
         "/editoriales/",
         json={"nombre": "Sudamericana", "pais": "Argentina"},
