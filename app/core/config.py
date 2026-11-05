@@ -1,22 +1,94 @@
-"""Lectura de la configuración desde el entorno (.env)."""
+"""Configuración de la aplicación (pydantic-settings).
 
-import os
+Reglas duras que este módulo implementa:
 
-from dotenv import load_dotenv
+- La dirección de la base se **arma** en el código a partir de las variables
+  sueltas ``POSTGRES_USER``, ``POSTGRES_PASSWORD``, ``POSTGRES_DB``,
+  ``POSTGRES_HOST`` y ``POSTGRES_PORT``, con el driver ``postgresql+asyncpg``.
+- Ni la clave de firma del token ni la contraseña de la base tienen **valor por
+  defecto**: si faltan, la aplicación no arranca. La clave de firma es el
+  secreto más importante del sistema (quien la tenga fabrica un token válido
+  para cualquier usuario) y una clave inventada al arrancar tampoco sirve:
+  cambia en cada reinicio y con dos procesos cada uno rechaza los tokens del
+  otro.
+- El coste de bcrypt, el tamaño del pool y la duración del token son
+  **configuración**, no constantes en el código.
+- ``env.example`` lista todas las variables y ningún secreto.
+"""
 
-load_dotenv()
+from __future__ import annotations
+
+from functools import lru_cache
+from urllib.parse import quote
+
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DRIVER = "postgresql+asyncpg"
 
 
-def get_database_url() -> str:
-    url = os.getenv("DATABASE_URL", "")
-    if not url:
-        raise RuntimeError(
-            "Falta la variable de entorno DATABASE_URL. "
-            "Copiá env.example a .env y completala."
+class Settings(BaseSettings):
+    """Configuración leída del entorno o de un ``.env`` que no se versiona."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=True,
+    )
+
+    # --- Base de datos -------------------------------------------------------
+    # Sin valores por defecto: si faltan, la aplicación no arranca.
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+
+    # --- Secretos ------------------------------------------------------------
+    # La clave de firma del token: sin valor por defecto, nunca en el código.
+    SECRET_KEY: str
+
+    # --- bcrypt --------------------------------------------------------------
+    # El coste sube con los años: va en la configuración, no fijo en el código.
+    BCRYPT_ROUNDS: int = 12
+    # Cuántos hashes pueden correr a la vez (bcrypt tarda ~300 ms y satura el
+    # bucle de eventos si se deixa libre).
+    BCRYPT_MAX_CONCURRENT_HASHES: int = 4
+
+    # --- Token y cookie ------------------------------------------------------
+    TOKEN_EXPIRE_MINUTES: int = 30
+    # `Secure` depende de cómo se sirva la app: en local por HTTP va en false.
+    COOKIE_SECURE: bool = False
+
+    # --- Motor asincrónico ---------------------------------------------------
+    POOL_SIZE: int = 5
+    MAX_OVERFLOW: int = 10
+    SQL_ECHO: bool = False
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def DATABASE_URL(self) -> str:
+        """URL de la base, armada con el driver asincrónico.
+
+        La contraseña y el usuario van escapados: pueden traer caracteres que
+        rompen la URL (``@``, ``:``, ``/``).
+        """
+        usuario = quote(self.POSTGRES_USER, safe="")
+        clave = quote(self.POSTGRES_PASSWORD, safe="")
+        return (
+            f"{DRIVER}://{usuario}:{clave}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
-    return url
 
 
-DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Devuelve la configuración. Se lee una vez por proceso.
 
-SQL_ECHO: bool = os.getenv("SQL_ECHO", "false").lower() in ("1", "true", "yes")
+    No se instancia al importar el módulo a propósito: el error por variable
+    faltante tiene que aparecer al **arrancar** la aplicación, no al importar
+    un módulo cualquiera (y que la importación de un módulo que sólo lee
+    configuración no rompa las herramientas).
+    """
+    return Settings()  # type: ignore[call-arg]

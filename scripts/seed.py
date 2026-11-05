@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import SQL_ECHO, get_database_url
+from app.core.config import get_settings
 from app.modules.autores.models import Autor
 from app.modules.clientes.models import Cliente, PerfilCliente
 from app.modules.editoriales.models import Editorial
@@ -26,7 +26,8 @@ from app.modules.ventas.models import RenglonVenta, Venta  # noqa: F401 (complet
 
 
 async def main() -> None:
-    engine = create_async_engine(get_database_url(), echo=SQL_ECHO)
+    settings = get_settings()
+    engine = create_async_engine(settings.DATABASE_URL, echo=settings.SQL_ECHO)
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         # Limpieza total con ids determinísticos (1, 2, 3, ...).

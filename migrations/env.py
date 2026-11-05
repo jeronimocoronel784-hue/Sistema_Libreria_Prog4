@@ -26,7 +26,7 @@ from app.modules.editoriales.models import Editorial  # noqa: F401
 from app.modules.generos.models import Genero  # noqa: F401
 from app.modules.libros.models import Libro, LibroAutor  # noqa: F401
 from app.modules.ventas.models import RenglonVenta, Venta  # noqa: F401
-from app.core.config import get_database_url
+from app.core.config import get_settings
 
 config = context.config
 
@@ -34,7 +34,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # La URL real viene del entorno, nunca de alembic.ini.
-config.set_main_option("sqlalchemy.url", get_database_url())
+config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
 
 target_metadata = SQLModel.metadata
 
