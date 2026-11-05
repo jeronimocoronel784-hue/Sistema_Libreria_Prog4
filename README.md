@@ -24,6 +24,9 @@ proyecto desde cero en una máquina limpia, armar la imagen de Docker y
 desplegarla en el VPS. Está pensado para que cualquiera del grupo lo pueda
 hacer sin ayuda.
 
+`docs/REANUDAR.md` tiene el estado del proyecto, lo que falta y las trampas
+que ya se pisaron.
+
 ## Requisitos
 
 - Python 3.12
